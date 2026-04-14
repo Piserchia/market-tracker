@@ -1,536 +1,106 @@
 import { useState, useEffect, useCallback } from "react";
-
 const API_BASE = "http://localhost:8787";
-const DEMO_MODE = typeof window !== "undefined" && !window.location.port;
+const SI = {"Oil / Geopolitical Risk":{d:"Brent crude oil price as a proxy for geopolitical stress. Oil spikes during conflicts (especially Middle East / Strait of Hormuz) drive inflation fears, pushing investors into gold as a hedge. When oil collapses, it signals calm markets where equities outperform metals.",w:"Nearly every post-WWII US recession was preceded by an oil spike. High oil → inflation → Fed can't cut → stagflation fears → gold/metals bid. Low oil → disinflation → risk-on → rotate to equities.",s:"Yahoo Finance (Brent Crude Futures, BZ=F)",f:"Every 15 min during market hours",t:"Bullish for metals: >$85/bbl | Bearish: <$70/bbl"},"Real Interest Rate (10Y TIPS)":{d:"The 10-Year TIPS yield — the single most important indicator for gold. Measures what investors earn AFTER inflation. When real rates are negative or near zero, holding gold (which yields nothing) costs nothing.",w:"Gold has an almost perfect inverse correlation with real rates. Negative real rates = gold bull. Real rates above 2% = gold historically enters a bear market because bonds become a better store of value.",s:"FRED (Federal Reserve Economic Data, series DFII10)",f:"Daily (business days, ~3:30 PM ET)",t:"Bullish: <0.5% | Warning: >1.5% | Bearish: >2.0%"},"US Dollar Index (DXY)":{d:"DXY measures the dollar against 6 major currencies (EUR, JPY, GBP, CAD, SEK, CHF). Gold is priced in dollars globally — a weaker dollar makes gold cheaper for foreign buyers, increasing demand.",w:"Dollar weakness often reflects fiscal concerns (deficit spending, debt spiral) and monetary easing — both structurally bullish for gold. A strong dollar signals confidence in US assets, pulling capital away from metals.",s:"Yahoo Finance (DX-Y.NYB)",f:"Every 15 min during market hours",t:"Bullish: <100 | Bearish: >105 | Strong bearish: >108"},"GDX/GLD Ratio Trend":{d:"Ratio of gold miners ETF (GDX) to physical gold ETF (GLD), tracked as a 20-day rolling slope. When miners outperform the metal, the market is pricing in expanding margins and growing sector confidence.",w:"This is YOUR leverage indicator. You hold miners, not bars. If gold is flat but miners are falling, the market is saying costs are rising or the gold rally is losing believers. Positive slope = operating leverage working for you.",s:"Yahoo Finance (GDX, GLD) — 20-day linear regression slope",f:"Every 15 min during market hours",t:"Bullish: positive slope | Warning: <-0.001 | Bearish: <-0.003"},"AISC Margin Proxy":{d:"Estimated profit margin per ounce for gold miners. AISC (All-In Sustaining Cost) is the industry standard for total mining cost. We estimate ~$1,800/oz based on 2026 guidance from top-25 producers.",w:"At $4,700 gold with $1,800 AISC, miners earn ~$2,900/oz (62% margins) — software-company profitability. If gold drops to $3,500, margins halve and miner earnings crater. This tells you how much cushion exists.",s:"Yahoo Finance (GC=F) vs. industry AISC estimates (update quarterly from NEM/GOLD/AEM earnings)",f:"Gold: 15 min | AISC: update manually each quarter",t:"Healthy: Gold >$4,000 | Danger: Gold <$3,500"},"GDX RSI (14-day)":{d:"Relative Strength Index — momentum oscillator measuring speed and magnitude of price changes (0-100). Above 75 = overbought (pullback likely). Below 30 = oversold (bounce likely).",w:"RSI doesn't tell direction — it tells exhaustion. RSI above 85 on GDX historically precedes 10-20% pullbacks even in bull markets. Not a reason to exit permanently, but a reason to tighten stops.",s:"Yahoo Finance (GDX daily close) — 14-period RSI computed locally",f:"Every 15 min during market hours",t:"Overbought: >75 | Extreme: >85 | Oversold: <30"},"GDX vs 200-Day SMA":{d:"Price relative to the 200-day Simple Moving Average — the most widely watched trend indicator. Above 200-SMA = uptrend. Below = downtrend. Distance from SMA matters: 50%+ above is extremely extended.",w:"The 200-SMA is where institutions draw the line between 'trend intact' and 'trend broken.' A close below often triggers systematic selling from trend-following funds. This is the canary in the coal mine.",s:"Yahoo Finance (GDX daily close) — 200-period SMA computed locally",f:"Every 15 min (meaningful on daily close)",t:"Healthy: 5-20% above | Extended: >50% | Broken: below"},"Gold Price Trend (50/200 SMA)":{d:"Relationship between gold's 50-day and 200-day moving averages. 50 crosses above 200 = 'Golden Cross' (bullish). 50 crosses below 200 = 'Death Cross' (bearish). Confirms primary trend.",w:"The golden/death cross on gold itself is the big-picture trend signal. Slow-moving and rarely flips, but when it does = major regime change. Every significant gold bear market started with a death cross.",s:"Yahoo Finance (GC=F) — 50/200 SMA computed locally",f:"Daily close",t:"Golden cross = bullish | Death cross = bearish"},"Gold/Silver Ratio":{d:"How many ounces of silver one ounce of gold buys. Historical range 40-90. High (>90) = silver cheap vs gold. Low (<60) = silver overextended. Silver is more volatile and more industrial.",w:"Helps gauge relative value within metals. In late-stage gold bulls, silver often outperforms dramatically (ratio compresses). Ratio collapsing below 60 can signal speculative excess in metals broadly.",s:"Yahoo Finance (GC=F / SI=F)",f:"Every 15 min during market hours",t:"Silver undervalued: >90 | Normal: 60-90 | Overextended: <60"},"Sector Flow (GDX vs SPY)":{d:"1-month relative performance of gold miners (GDX) versus S&P 500 (SPY). Measures whether capital is flowing into or out of miners relative to the broad market.",w:"When miners outperform SPY significantly = metals trade is the leadership theme. When miners lag SPY by 10%+ = institutional capital rotating out, often the early signal before absolute price drops.",s:"Yahoo Finance (GDX, SPY) — 20-day percentage change comparison",f:"Every 15 min during market hours",t:"Leading: GDX > SPY by 10%+ | Lagging: GDX < SPY by 10%+"}};
+const MI = {"10Y TIPS Yield (Real Rate)":{d:"Yield on 10-year inflation-protected Treasuries. This IS the real interest rate — what you earn above inflation by holding government bonds.",s:"FRED (DFII10)",f:"Daily"},"10Y Treasury":{d:"Nominal 10-year Treasury yield. Benchmark rate driving mortgage rates, corporate borrowing, and equity valuations. Higher = tighter conditions.",s:"FRED (DGS10)",f:"Daily"},"10Y Breakeven Inflation":{d:"Market's expectation for average inflation over the next 10 years. Rising breakevens = market expects more inflation = bullish gold.",s:"FRED (T10YIE)",f:"Daily"},"Fed Funds Rate":{d:"Federal Reserve's target overnight lending rate. The most important interest rate in the world. Lower = easier money = bullish metals.",s:"FRED (FEDFUNDS)",f:"After each FOMC meeting (~8x/year)"}};
+const RI = {"gdx_gld":{d:"Current ratio of miner prices to gold prices. Higher = miners valued more richly vs the metal. Historical range ~0.15-0.30."},"gdx_gld_slope_20d":{d:"Direction the ratio is heading. Positive = miners gaining on gold (good). Negative = miners losing leverage (bad)."},"gdxj_gdx":{d:"Junior vs senior miners. Juniors outperforming = risk appetite high, money chasing smaller high-beta names."},"gold_spy":{d:"Gold relative to S&P 500. Historical average ~1.5-3x. Extreme readings signal one asset may be overvalued vs the other."}};
+const RT = {"energy":{d:"Energy sector (XLE). If rotating OUT of metals because oil stays high, energy catches the capital.",c:"Sustained high oil → energy companies print cash → dividends + buybacks"},"ai_tech":{d:"Semiconductors (SMH), broad tech (XLK), Nasdaq (QQQ). AI capex supercycle is the dominant secular theme. Leads when rates fall and risk appetite returns.",c:"Hormuz resolves → oil drops → inflation eases → Fed cuts → tech multiples expand"},"broad_market":{d:"S&P 500 (SPY) — the default. When macro normalizes (falling oil, falling rates, stable growth), broad beta is the simplest trade.",c:"Volatility falls → growth stabilizes → ride the index"},"rate_sensitive_growth":{d:"Innovation (ARKK), homebuilders (XHB), financials (XLF). Crushed by high rates, would snap back hardest on a dovish Fed pivot.",c:"Fed cuts → mortgage rates drop → housing recovers → growth re-rates"},"consumer":{d:"Consumer discretionary (XLY). Consumers spend more when gas is cheap and wages are rising.",c:"Oil drops → gas falls → real wages improve → confidence rebounds"}};
+const CL = {"Hormuz resolves / Oil <$75":"Single biggest near-term catalyst. If US-Iran conflict resolves and Hormuz normalizes, oil crashes, inflation expectations drop, and the safe-haven bid for gold evaporates overnight.","Real rates >2.0%":"The structural killer. Gold has NEVER sustained a bull market with real rates above 2%. Bonds offer genuine real return, making gold's zero-yield uncompetitive.","DXY >105":"Strong dollar makes gold expensive for 70%+ of non-dollar global demand. Signals capital flowing into US assets instead of hard assets.","GDX/GLD slope negative":"Miners losing leverage premium = market pricing in cost inflation, operational issues, or fading gold momentum. Often leads gold declines by weeks.","AISC rising + gold stalling":"If gold drops below $3,500 while costs climb, margins compress from 60%+ to 40% or less. Earnings estimates get slashed, stocks re-rate down fast.","GDX below 200-SMA":"The trend line. When GDX closes below its 200-day moving average, systematic funds sell and self-reinforcing downtrend begins. The 'last out' signal."};
+const DS={timestamp:new Date().toISOString(),composite_score:3.25,composite_status:"HOLD",alert_level:"green",alert_message:"✅ HOLD: Macro and technical signals support mining position.",score_trend:"stable",previous_score:3.0,prices:{gold:4728,silver:73.66,copper:6.01,oil:87.2,gdx:97.49,gdxj:121.24,gld:437.13,dxy:99.8,spy:568.2,qqq:492.1,smh:245.3,slv:69.08},changes:{gold:{"1d":-0.04,"1w":1.5,"1m":3.2,"3m":12.4},silver:{"1d":0.41,"1w":2.1,"1m":-6.4,"3m":-15.2},copper:{"1d":0.56,"1w":3.8,"1m":5.1,"3m":18.7},gdx:{"1d":3.38,"1w":5.2,"1m":-2.1,"3m":22.5},gdxj:{"1d":3.32,"1w":6.1,"1m":-1.8,"3m":28.3},oil:{"1d":-1.2,"1w":-3.4,"1m":15.2,"3m":22.8},dxy:{"1d":-0.24,"1w":-1.1,"1m":-2.3,"3m":-4.8},spy:{"1d":-0.3,"1w":1.2,"1m":-3.9,"3m":-2.1},qqq:{"1d":-0.27,"1w":1.5,"1m":-4.2,"3m":-1.8}},ratios:{gdx_gld:0.2230,gdx_gld_slope_20d:0.0012,gdxj_gdx:1.243,gold_spy:8.32},macro:{tips_10y:0.42,treasury_10y:4.29,breakeven_10y:3.87,fed_funds:3.625,real_rate_10y:0.42},signals:[{name:"Oil / Geopolitical Risk",category:"macro",score:1.0,value:87.2,status:"bullish",detail:"Brent at $87 — elevated geopolitical risk supports metals",threshold_info:"Bullish >85 | Bearish <70",weight:1.5},{name:"Real Interest Rate (10Y TIPS)",category:"macro",score:1.0,value:0.42,status:"bullish",detail:"Real rate at 0.42% — deeply negative, very bullish gold",threshold_info:"Bullish <0.5% | Bearish >2.0%",weight:1.5},{name:"US Dollar Index (DXY)",category:"macro",score:1.0,value:99.8,status:"bullish",detail:"DXY at 99.8 — weak dollar, strong tailwind for metals",threshold_info:"Bullish <100 | Bearish >105",weight:1.0},{name:"GDX/GLD Ratio Trend",category:"technical",score:1.0,value:0.0012,status:"bullish",detail:"GDX/GLD slope 0.00120 — miners outperforming metal",threshold_info:"Bullish: positive | Bearish: <-0.001",weight:1.25},{name:"AISC Margin Proxy",category:"fundamental",score:1.0,value:62,status:"bullish",detail:"Gold at $4728 — est. margin $2928/oz (62%) = extreme profitability",threshold_info:"Gold >4000 = healthy | <3500 = danger",weight:1.0},{name:"GDX RSI (14-day)",category:"technical",score:0.0,value:53.8,status:"neutral",detail:"GDX RSI at 53.8 — neutral range",threshold_info:"Overbought >75 | Oversold <30",weight:0.75},{name:"GDX vs 200-Day SMA",category:"technical",score:0.5,value:21.7,status:"bullish",detail:"GDX 21.7% above 200-SMA — strong trend",threshold_info:"Above = bullish | Below = bearish",weight:1.0},{name:"Gold Price Trend (50/200 SMA)",category:"technical",score:0.5,value:420,status:"bullish",detail:"Gold 50-SMA > 200-SMA — golden cross",threshold_info:"Golden cross = bullish | Death cross = bearish",weight:1.0},{name:"Gold/Silver Ratio",category:"fundamental",score:0.0,value:64.2,status:"neutral",detail:"Gold/Silver ratio at 64.2 — normal range",threshold_info:">90 undervalued | <60 overextended",weight:0.5},{name:"Sector Flow (GDX vs SPY)",category:"technical",score:0.0,value:1.8,status:"neutral",detail:"GDX 1M: -2.1% vs SPY -3.9% — roughly in line",threshold_info:"GDX outperforming = bullish",weight:0.75}],rotation_targets:[{name:"Energy",sector_key:"energy",score:0.5,tickers:["XLE"],rationale:"Benefits from sustained high energy prices",momentum:{XLE:{"1d":0.8,"1w":2.1,"1m":8.5}}},{name:"AI / Tech Infrastructure",sector_key:"ai_tech",score:0.33,tickers:["SMH","XLK","QQQ"],rationale:"Semiconductors, cloud, data center buildout",momentum:{SMH:{"1d":-0.5,"1w":1.8,"1m":-5.2},QQQ:{"1d":-0.27,"1w":1.5,"1m":-4.2}}},{name:"Broad Market (S&P 500)",sector_key:"broad_market",score:0.0,tickers:["SPY"],rationale:"Default risk-on allocation",momentum:{SPY:{"1d":-0.3,"1w":1.2,"1m":-3.9}}},{name:"Rate-Sensitive Growth",sector_key:"rate_sensitive_growth",score:0.0,tickers:["ARKK","XHB","XLF"],rationale:"Fintech, homebuilders — benefits from rate cuts",momentum:{}},{name:"Consumer Discretionary",sector_key:"consumer",score:0.0,tickers:["XLY"],rationale:"Rebounds when energy costs drop",momentum:{}}]};
+const DH=Array.from({length:30},(_,i)=>({timestamp:new Date(Date.now()-(29-i)*864e5).toISOString(),composite_score:2.5+Math.sin(i/5)*2+Math.random()*0.5,alert_level:i>25?"green":i>20?"yellow":"green",prices:{gold:4400+i*12+Math.random()*50,gdx:85+i*0.5}}));
+const fmt=(n,d=2)=>n!=null?Number(n).toFixed(d):"—";
+const fP=(n)=>n!=null?(n>=0?"+":"")+Number(n).toFixed(1)+"%":"—";
+const f$=(n)=>n!=null?(n>100?"$"+Number(n).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0}):"$"+fmt(n)):"—";
+const SC={HOLD:{color:"#00e676",bg:"rgba(0,230,118,0.08)",icon:"✅",label:"HOLD POSITION"},WATCH:{color:"#ffd600",bg:"rgba(255,214,0,0.08)",icon:"👀",label:"WATCH CLOSELY"},PREPARE:{color:"#ff9100",bg:"rgba(255,145,0,0.08)",icon:"⚠️",label:"PREPARE TO ROTATE"},ROTATE:{color:"#ff1744",bg:"rgba(255,23,68,0.08)",icon:"⛔",label:"ROTATE NOW"}};
 
-// ── Demo data for artifact preview ──────────
-const DEMO_STATE = {
-  timestamp: new Date().toISOString(),
-  composite_score: 3.25,
-  composite_status: "HOLD",
-  alert_level: "green",
-  alert_message: "✅ HOLD: Macro and technical signals support mining position.",
-  score_trend: "stable",
-  previous_score: 3.0,
-  prices: {
-    gold: 4728, silver: 73.66, copper: 6.01, oil: 87.2,
-    gdx: 97.49, gdxj: 121.24, gld: 437.13, dxy: 99.8,
-    spy: 568.2, qqq: 492.1, smh: 245.3, slv: 69.08
-  },
-  changes: {
-    gold: { "1d": -0.04, "1w": 1.5, "1m": 3.2, "3m": 12.4 },
-    silver: { "1d": 0.41, "1w": 2.1, "1m": -6.4, "3m": -15.2 },
-    copper: { "1d": 0.56, "1w": 3.8, "1m": 5.1, "3m": 18.7 },
-    gdx: { "1d": 3.38, "1w": 5.2, "1m": -2.1, "3m": 22.5 },
-    gdxj: { "1d": 3.32, "1w": 6.1, "1m": -1.8, "3m": 28.3 },
-    oil: { "1d": -1.2, "1w": -3.4, "1m": 15.2, "3m": 22.8 },
-    dxy: { "1d": -0.24, "1w": -1.1, "1m": -2.3, "3m": -4.8 },
-    spy: { "1d": -0.3, "1w": 1.2, "1m": -3.9, "3m": -2.1 },
-    qqq: { "1d": -0.27, "1w": 1.5, "1m": -4.2, "3m": -1.8 }
-  },
-  ratios: { gdx_gld: 0.2230, gdx_gld_slope_20d: 0.0012, gdxj_gdx: 1.243, gold_spy: 8.32 },
-  macro: { tips_10y: 0.42, treasury_10y: 4.29, breakeven_10y: 3.87, fed_funds: 3.625, real_rate_10y: 0.42 },
-  signals: [
-    { name: "Oil / Geopolitical Risk", category: "macro", score: 1.0, value: 87.2, status: "bullish", detail: "Brent at $87 — elevated geopolitical risk supports metals", threshold_info: "Bullish >85 | Bearish <70", weight: 1.5 },
-    { name: "Real Interest Rate (10Y TIPS)", category: "macro", score: 1.0, value: 0.42, status: "bullish", detail: "Real rate at 0.42% — deeply negative, very bullish gold", threshold_info: "Bullish <0.5% | Bearish >2.0%", weight: 1.5 },
-    { name: "US Dollar Index (DXY)", category: "macro", score: 1.0, value: 99.8, status: "bullish", detail: "DXY at 99.8 — weak dollar, strong tailwind for metals", threshold_info: "Bullish <100 | Bearish >105", weight: 1.0 },
-    { name: "GDX/GLD Ratio Trend", category: "technical", score: 1.0, value: 0.0012, status: "bullish", detail: "GDX/GLD slope 0.00120 — miners outperforming metal", threshold_info: "Bullish: positive slope | Bearish: slope < -0.001", weight: 1.25 },
-    { name: "AISC Margin Proxy", category: "fundamental", score: 1.0, value: 62, status: "bullish", detail: "Gold at $4728 — est. margin $2928/oz (62%) = extreme profitability", threshold_info: "Gold >4000 = healthy | <3500 = danger", weight: 1.0 },
-    { name: "GDX RSI (14-day)", category: "technical", score: 0.0, value: 53.8, status: "neutral", detail: "GDX RSI at 53.8 — neutral range", threshold_info: "Overbought >75 | Oversold <30", weight: 0.75 },
-    { name: "GDX vs 200-Day SMA", category: "technical", score: 0.5, value: 21.7, status: "bullish", detail: "GDX 21.7% above 200-SMA — strong trend", threshold_info: "Above 200-SMA = bullish | Below = bearish", weight: 1.0 },
-    { name: "Gold Price Trend (50/200 SMA)", category: "technical", score: 0.5, value: 420, status: "bullish", detail: "Gold 50-SMA > 200-SMA — golden cross, bullish trend", threshold_info: "Golden cross = bullish | Death cross = bearish", weight: 1.0 },
-    { name: "Gold/Silver Ratio", category: "fundamental", score: 0.0, value: 64.2, status: "neutral", detail: "Gold/Silver ratio at 64.2 — normal range", threshold_info: "High (>90) = silver undervalued | Low (<60) = overextended", weight: 0.5 },
-    { name: "Sector Flow (GDX vs SPY)", category: "technical", score: 0.0, value: 1.8, status: "neutral", detail: "GDX 1M: -2.1% vs SPY -3.9% — roughly in line", threshold_info: "GDX outperforming SPY = bullish", weight: 0.75 }
-  ],
-  rotation_targets: [
-    { name: "Energy", sector_key: "energy", score: 0.5, tickers: ["XLE"], rationale: "Benefits from sustained high energy prices", momentum: { XLE: { "1d": 0.8, "1w": 2.1, "1m": 8.5 } } },
-    { name: "AI / Tech Infrastructure", sector_key: "ai_tech", score: 0.33, tickers: ["SMH", "XLK", "QQQ"], rationale: "Semiconductors, cloud, data center buildout", momentum: { SMH: { "1d": -0.5, "1w": 1.8, "1m": -5.2 }, QQQ: { "1d": -0.27, "1w": 1.5, "1m": -4.2 } } },
-    { name: "Broad Market (S&P 500)", sector_key: "broad_market", score: 0.0, tickers: ["SPY"], rationale: "Default risk-on allocation", momentum: { SPY: { "1d": -0.3, "1w": 1.2, "1m": -3.9 } } },
-    { name: "Rate-Sensitive Growth", sector_key: "rate_sensitive_growth", score: 0.0, tickers: ["ARKK", "XHB", "XLF"], rationale: "Fintech, homebuilders — benefits from rate cuts", momentum: {} },
-    { name: "Consumer Discretionary", sector_key: "consumer", score: 0.0, tickers: ["XLY"], rationale: "Rebounds when energy costs drop", momentum: {} }
-  ]
-};
+function Tip({info,width=380}){const[o,setO]=useState(false);if(!info)return null;
+return(<span style={{position:"relative",display:"inline-block",marginLeft:"6px",verticalAlign:"middle"}}><span onClick={e=>{e.stopPropagation();setO(!o)}} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:"16px",height:"16px",borderRadius:"50%",background:o?"rgba(100,140,255,0.25)":"rgba(255,255,255,0.06)",border:`1px solid ${o?"#648cff":"#333"}`,color:o?"#648cff":"#555",fontSize:"10px",fontWeight:700,cursor:"pointer",transition:"all 0.2s",fontFamily:"monospace",lineHeight:1}} title="Click for details">i</span>
+{o&&<><div onClick={()=>setO(false)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:99}}/><div style={{position:"absolute",top:"24px",left:"-12px",zIndex:100,width:`${width}px`,padding:"16px",borderRadius:"10px",background:"#141820",border:"1px solid #2a2f3e",boxShadow:"0 12px 40px rgba(0,0,0,0.6)"}}>
+{info.d&&<div style={{fontSize:"12px",color:"#c8ccd4",lineHeight:1.6,marginBottom:info.w?"10px":"0"}}>{info.d}</div>}
+{info.w&&<div style={{fontSize:"11px",color:"#a0a8b8",lineHeight:1.5,marginBottom:"10px",padding:"8px 10px",background:"rgba(100,140,255,0.06)",borderRadius:"6px",borderLeft:"2px solid #648cff"}}><span style={{fontWeight:700,color:"#648cff",fontSize:"9px",textTransform:"uppercase",letterSpacing:"1px"}}>Why it matters</span><br/>{info.w}</div>}
+{info.c&&<div style={{fontSize:"11px",color:"#a0a8b8",lineHeight:1.5,marginBottom:"10px",padding:"8px 10px",background:"rgba(0,230,118,0.04)",borderRadius:"6px",borderLeft:"2px solid #00e676"}}><span style={{fontWeight:700,color:"#00e676",fontSize:"9px",textTransform:"uppercase",letterSpacing:"1px"}}>Rotation catalyst</span><br/>{info.c}</div>}
+{info.t&&<div style={{fontSize:"10px",color:"#888",fontFamily:"monospace",marginBottom:"6px"}}><span style={{color:"#648cff"}}>Thresholds:</span> {info.t}</div>}
+{info.s&&<div style={{display:"flex",alignItems:"center",gap:"6px",marginTop:"8px",paddingTop:"8px",borderTop:"1px solid #1e2330"}}><span style={{fontSize:"9px",padding:"2px 5px",borderRadius:"3px",background:"rgba(255,255,255,0.04)",color:"#666",fontFamily:"monospace"}}>SRC</span><span style={{fontSize:"10px",color:"#666"}}>{info.s}</span></div>}
+{info.f&&<div style={{display:"flex",alignItems:"center",gap:"6px",marginTop:"4px"}}><span style={{fontSize:"9px",padding:"2px 5px",borderRadius:"3px",background:"rgba(255,255,255,0.04)",color:"#666",fontFamily:"monospace"}}>UPD</span><span style={{fontSize:"10px",color:"#666"}}>{info.f}</span></div>}
+</div></>}</span>);}
 
-const DEMO_HISTORY = Array.from({ length: 30 }, (_, i) => ({
-  timestamp: new Date(Date.now() - (29 - i) * 86400000).toISOString(),
-  composite_score: 2.5 + Math.sin(i / 5) * 2 + Math.random() * 0.5,
-  alert_level: i > 25 ? "green" : i > 20 ? "yellow" : "green",
-  prices: { gold: 4400 + i * 12 + Math.random() * 50, gdx: 85 + i * 0.5 }
-}));
+function Gauge({score,status,trend}){const cfg=SC[status]||SC.WATCH;const n=Math.max(-8,Math.min(8,score));const pct=((n+8)/16)*100;const ti=trend==="improving"?"↑":trend==="deteriorating"?"↓":"→";
+return(<div style={{textAlign:"center",padding:"24px 0"}}><div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"4px",marginBottom:"12px"}}><span style={{fontSize:"11px",textTransform:"uppercase",letterSpacing:"3px",color:"#8a8f98",fontFamily:"'JetBrains Mono',monospace"}}>Composite Rotation Score</span><Tip info={{d:"Weighted sum of all 10 signals. Each scores -1 (bearish) to +1 (bullish), multiplied by importance weight. The composite tells you overall health of the mining trade at a glance.",w:"No single indicator is reliable alone. The composite aggregates macro, technical, and fundamental signals to reduce false alarms. When 3+ signals flip bearish simultaneously, it's much more likely to be a real regime change.",t:"≥ +2 = HOLD (green) | -1 to +1 = WATCH (yellow) | ≤ -1 = PREPARE (orange) | ≤ -3 = ROTATE (red)"}} width={400}/></div>
+<div style={{fontSize:"72px",fontWeight:800,color:cfg.color,lineHeight:1,fontFamily:"'Space Grotesk',sans-serif"}}>{score>=0?"+":""}{fmt(score,1)}</div>
+<div style={{margin:"16px auto",width:"100%",maxWidth:"400px",height:"8px",borderRadius:"4px",background:"rgba(255,255,255,0.06)",position:"relative",overflow:"hidden"}}><div style={{position:"absolute",left:0,top:0,height:"100%",width:`${pct}%`,borderRadius:"4px",background:"linear-gradient(90deg,#ff1744,#ff9100,#ffd600,#00e676)",transition:"width 0.8s ease"}}/><div style={{position:"absolute",top:"-4px",left:`calc(${pct}% - 8px)`,width:"16px",height:"16px",borderRadius:"50%",background:cfg.color,border:"2px solid #0d1117",transition:"left 0.8s ease"}}/></div>
+<div style={{display:"flex",justifyContent:"space-between",maxWidth:"400px",margin:"4px auto 0",fontSize:"10px",color:"#555",fontFamily:"monospace"}}><span>ROTATE</span><span>PREPARE</span><span>WATCH</span><span>HOLD</span></div>
+<div style={{display:"inline-block",marginTop:"16px",padding:"8px 24px",borderRadius:"6px",background:cfg.bg,border:`1px solid ${cfg.color}30`,color:cfg.color,fontSize:"14px",fontWeight:700,letterSpacing:"2px",fontFamily:"'JetBrains Mono',monospace"}}>{cfg.icon} {cfg.label}{trend&&<span style={{marginLeft:"12px",opacity:0.7}}>{ti} {trend}</span>}</div></div>);}
 
-// ── Utility ─────────────────────────────────
-const fmt = (n, d = 2) => n != null ? Number(n).toFixed(d) : "—";
-const fmtPct = (n) => n != null ? `${n >= 0 ? "+" : ""}${Number(n).toFixed(1)}%` : "—";
-const fmtPrice = (n) => n != null ? (n > 100 ? `$${Number(n).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : `$${fmt(n)}`) : "—";
+function PT({label,price,change}){const c=change!=null?(change>=0?"#00e676":"#ff1744"):"#8a8f98";return(<div style={{padding:"10px 16px",borderRight:"1px solid #1a1f2e",minWidth:"120px"}}><div style={{fontSize:"10px",color:"#555",textTransform:"uppercase",letterSpacing:"1.5px",marginBottom:"4px",fontFamily:"monospace"}}>{label}</div><div style={{fontSize:"18px",fontWeight:700,color:"#e1e4e8",fontFamily:"'Space Grotesk',sans-serif"}}>{f$(price)}</div><div style={{fontSize:"12px",color:c,fontFamily:"monospace"}}>{fP(change)}</div></div>);}
 
-const LEVEL_COLORS = {
-  green: "#00e676",
-  yellow: "#ffd600",
-  orange: "#ff9100",
-  red: "#ff1744"
-};
+function SigCard({signal}){const colors={bullish:"#00e676",neutral:"#ffd600",bearish:"#ff1744"};const color=colors[signal.status]||"#8a8f98";const bg=signal.score>0?"rgba(0,230,118,0.1)":signal.score<0?"rgba(255,23,68,0.1)":"rgba(255,214,0,0.1)";const info=SI[signal.name];
+return(<div style={{background:"#0d1117",border:"1px solid #1a1f2e",borderLeft:`3px solid ${color}`,borderRadius:"8px",padding:"16px",marginBottom:"8px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"}}><div style={{display:"flex",alignItems:"center",gap:"6px",flexWrap:"wrap"}}><span style={{fontSize:"14px",fontWeight:700,color:"#e1e4e8"}}>{signal.name}</span><Tip info={info}/><span style={{fontSize:"9px",padding:"2px 6px",borderRadius:"3px",background:"rgba(255,255,255,0.05)",color:"#8a8f98",textTransform:"uppercase",letterSpacing:"1px",fontFamily:"monospace"}}>{signal.category}</span></div><div style={{fontSize:"16px",fontWeight:800,color,padding:"2px 10px",borderRadius:"4px",background:bg,fontFamily:"'JetBrains Mono',monospace"}}>{signal.score>=0?"+":""}{fmt(signal.score,1)}</div></div>
+<div style={{fontSize:"12px",color:"#8a8f98",lineHeight:1.5}}>{signal.detail}</div>
+{info?.s&&<div style={{display:"flex",alignItems:"center",gap:"8px",marginTop:"8px",flexWrap:"wrap"}}><span style={{fontSize:"9px",padding:"1px 4px",borderRadius:"2px",background:"rgba(255,255,255,0.03)",color:"#444",fontFamily:"monospace"}}>SRC</span><span style={{fontSize:"9px",color:"#333"}}>{info.s}</span><span style={{fontSize:"9px",padding:"1px 4px",borderRadius:"2px",background:"rgba(255,255,255,0.03)",color:"#444",fontFamily:"monospace"}}>UPD</span><span style={{fontSize:"9px",color:"#333"}}>{info.f}</span></div>}</div>);}
 
-const STATUS_CONFIG = {
-  HOLD: { color: "#00e676", bg: "rgba(0,230,118,0.08)", icon: "✅", label: "HOLD POSITION" },
-  WATCH: { color: "#ffd600", bg: "rgba(255,214,0,0.08)", icon: "👀", label: "WATCH CLOSELY" },
-  PREPARE: { color: "#ff9100", bg: "rgba(255,145,0,0.08)", icon: "⚠️", label: "PREPARE TO ROTATE" },
-  ROTATE: { color: "#ff1744", bg: "rgba(255,23,68,0.08)", icon: "⛔", label: "ROTATE NOW" }
-};
+function RotCard({target,rank}){const bw=Math.max(5,target.score*100);const top=rank===0&&target.score>0;const info=RT[target.sector_key];
+return(<div style={{background:top?"rgba(0,230,118,0.04)":"#0d1117",border:`1px solid ${top?"rgba(0,230,118,0.2)":"#1a1f2e"}`,borderRadius:"8px",padding:"16px",marginBottom:"8px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"}}><div style={{display:"flex",alignItems:"center",gap:"8px"}}>{top&&<span style={{fontSize:"10px",padding:"2px 6px",borderRadius:"3px",background:"rgba(0,230,118,0.15)",color:"#00e676",fontWeight:700}}>TOP PICK</span>}<span style={{fontSize:"14px",fontWeight:700,color:"#e1e4e8"}}>{target.name}</span><Tip info={info}/></div><span style={{fontSize:"14px",fontWeight:700,color:target.score>0.3?"#00e676":"#8a8f98",fontFamily:"monospace"}}>{(target.score*100).toFixed(0)}%</span></div>
+<div style={{height:"4px",borderRadius:"2px",background:"rgba(255,255,255,0.05)",marginBottom:"8px"}}><div style={{height:"100%",borderRadius:"2px",width:`${bw}%`,background:target.score>0.3?"#00e676":"#444",transition:"width 0.5s"}}/></div>
+<div style={{display:"flex",gap:"6px",flexWrap:"wrap",marginBottom:"6px"}}>{target.tickers.map(t=><span key={t} style={{fontSize:"11px",padding:"2px 8px",borderRadius:"4px",background:"rgba(255,255,255,0.06)",color:"#b0b3b8",fontFamily:"monospace",fontWeight:600}}>{t}</span>)}</div>
+<div style={{fontSize:"11px",color:"#666"}}>{target.rationale}</div>
+{target.momentum&&Object.keys(target.momentum).length>0&&<div style={{display:"flex",gap:"12px",marginTop:"8px"}}>{Object.entries(target.momentum).map(([t,c])=><span key={t} style={{fontSize:"10px",color:"#8a8f98",fontFamily:"monospace"}}>{t}: <span style={{color:(c["1m"]||0)>=0?"#00e676":"#ff1744"}}>{fP(c["1m"])} 1M</span></span>)}</div>}</div>);}
 
-// ── Components ──────────────────────────────
+function MR({label,value,format,thresholds,ik}){let color="#e1e4e8";if(thresholds){const v=Number(value);if(thresholds.bB!=null&&v<thresholds.bB)color="#00e676";else if(thresholds.bA!=null&&v>thresholds.bA)color="#ff1744";else if(thresholds.wA!=null&&v>thresholds.wA)color="#ffd600";}
+const fv=format==="pct"?`${fmt(value)}%`:format==="$"?f$(value):fmt(value,4);
+return(<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid #1a1f2e"}}><span style={{fontSize:"12px",color:"#8a8f98",display:"flex",alignItems:"center"}}>{label}{ik&&MI[ik]&&<Tip info={MI[ik]} width={320}/>}</span><span style={{fontSize:"13px",fontWeight:600,color,fontFamily:"monospace"}}>{fv}</span></div>);}
 
-function ScoreGauge({ score, status, trend }) {
-  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.WATCH;
-  const normalized = Math.max(-8, Math.min(8, score));
-  const pct = ((normalized + 8) / 16) * 100;
-  const trendIcon = trend === "improving" ? "↑" : trend === "deteriorating" ? "↓" : "→";
+function MC({history}){if(!history||history.length<2)return null;const scores=history.map(h=>h.composite_score);const min=Math.min(...scores)-1;const max=Math.max(...scores)+1;const r=max-min||1;const w=400,h=80;const pts=scores.map((s,i)=>`${(i/(scores.length-1))*w},${h-((s-min)/r)*h}`).join(" ");const lc=scores[scores.length-1]>=2?"#00e676":scores[scores.length-1]>=-1?"#ffd600":"#ff9100";
+return(<div style={{padding:"16px",background:"#0d1117",borderRadius:"8px",border:"1px solid #1a1f2e"}}><div style={{display:"flex",alignItems:"center",gap:"4px",marginBottom:"8px"}}><span style={{fontSize:"10px",color:"#555",textTransform:"uppercase",letterSpacing:"1.5px",fontFamily:"monospace"}}>Score History (30 days)</span><Tip info={{d:"Daily composite score over 30 days. Green dashed = HOLD threshold (+2). Red dashed = ROTATE threshold (-3). Look for trends, not individual points.",s:"Locally computed from daily signal evaluations",f:"Appended each update cycle"}} width={320}/></div>
+<svg viewBox={`0 0 ${w} ${h}`} style={{width:"100%",height:"80px"}}><line x1="0" y1={h-((-3-min)/r)*h} x2={w} y2={h-((-3-min)/r)*h} stroke="#ff174433" strokeDasharray="4"/><line x1="0" y1={h-((2-min)/r)*h} x2={w} y2={h-((2-min)/r)*h} stroke="#00e67633" strokeDasharray="4"/><polyline points={pts} fill="none" stroke={lc} strokeWidth="2" strokeLinejoin="round"/></svg></div>);}
 
-  return (
-    <div style={{ textAlign: "center", padding: "24px 0" }}>
-      <div style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "3px", color: "#8a8f98", marginBottom: "12px", fontFamily: "'JetBrains Mono', monospace" }}>
-        Composite Rotation Score
-      </div>
-      <div style={{ fontSize: "72px", fontWeight: 800, color: cfg.color, lineHeight: 1, fontFamily: "'Space Grotesk', sans-serif" }}>
-        {score >= 0 ? "+" : ""}{fmt(score, 1)}
-      </div>
-      <div style={{ margin: "16px auto", width: "100%", maxWidth: "400px", height: "8px", borderRadius: "4px", background: "rgba(255,255,255,0.06)", position: "relative", overflow: "hidden" }}>
-        <div style={{
-          position: "absolute", left: 0, top: 0, height: "100%",
-          width: `${pct}%`,
-          borderRadius: "4px",
-          background: `linear-gradient(90deg, #ff1744, #ff9100, #ffd600, #00e676)`,
-          transition: "width 0.8s ease"
-        }} />
-        <div style={{
-          position: "absolute", top: "-4px",
-          left: `calc(${pct}% - 8px)`,
-          width: "16px", height: "16px", borderRadius: "50%",
-          background: cfg.color, border: "2px solid #0d1117",
-          transition: "left 0.8s ease"
-        }} />
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", maxWidth: "400px", margin: "4px auto 0", fontSize: "10px", color: "#555", fontFamily: "monospace" }}>
-        <span>ROTATE</span><span>PREPARE</span><span>WATCH</span><span>HOLD</span>
-      </div>
-      <div style={{
-        display: "inline-block", marginTop: "16px",
-        padding: "8px 24px", borderRadius: "6px",
-        background: cfg.bg, border: `1px solid ${cfg.color}30`,
-        color: cfg.color, fontSize: "14px", fontWeight: 700,
-        letterSpacing: "2px", fontFamily: "'JetBrains Mono', monospace"
-      }}>
-        {cfg.icon} {cfg.label}
-        {trend && <span style={{ marginLeft: "12px", opacity: 0.7 }}>{trendIcon} {trend}</span>}
-      </div>
-    </div>
-  );
-}
+export default function MiningRotationDashboard(){
+const[state,setState]=useState(DS);const[history,setHistory]=useState(DH);const[loading,setLoading]=useState(false);const[live,setLive]=useState(false);
+const fetchData=useCallback(async()=>{try{setLoading(true);const[sr,hr]=await Promise.all([fetch(`${API_BASE}/api/state`),fetch(`${API_BASE}/api/history`)]);if(sr.ok){const d=await sr.json();if(!d.error){setState(d);setLive(true);}}if(hr.ok){const h=await hr.json();if(Array.isArray(h)&&h.length>0)setHistory(h);}}catch{}finally{setLoading(false);}},[]);
+useEffect(()=>{fetchData();const i=setInterval(fetchData,60000);return()=>clearInterval(i);},[fetchData]);
+const refresh=async()=>{try{await fetch(`${API_BASE}/api/refresh?fred=true`,{method:"POST"});setTimeout(fetchData,5000);}catch{}};
+const s=state;const cfg=SC[s.composite_status]||SC.WATCH;
 
-function PriceTicker({ label, price, change, prefix = "$" }) {
-  const c = change != null ? (change >= 0 ? "#00e676" : "#ff1744") : "#8a8f98";
-  return (
-    <div style={{ padding: "10px 16px", borderRight: "1px solid #1a1f2e", minWidth: "120px" }}>
-      <div style={{ fontSize: "10px", color: "#555", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: "4px", fontFamily: "monospace" }}>{label}</div>
-      <div style={{ fontSize: "18px", fontWeight: 700, color: "#e1e4e8", fontFamily: "'Space Grotesk', sans-serif" }}>{fmtPrice(price)}</div>
-      <div style={{ fontSize: "12px", color: c, fontFamily: "monospace" }}>{fmtPct(change)}</div>
-    </div>
-  );
-}
+return(<div style={{minHeight:"100vh",background:"#080b12",color:"#e1e4e8",fontFamily:"'Instrument Sans',-apple-system,sans-serif"}}>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 
-function SignalCard({ signal }) {
-  const colors = { bullish: "#00e676", neutral: "#ffd600", bearish: "#ff1744" };
-  const color = colors[signal.status] || "#8a8f98";
-  const scoreBg = signal.score > 0 ? "rgba(0,230,118,0.1)" : signal.score < 0 ? "rgba(255,23,68,0.1)" : "rgba(255,214,0,0.1)";
+<div style={{background:"#0d1117",borderBottom:`2px solid ${cfg.color}30`,padding:"12px 24px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:"16px"}}><div style={{fontSize:"16px",fontWeight:700,letterSpacing:"1px",fontFamily:"'Space Grotesk',sans-serif"}}><span style={{color:cfg.color}}>◆</span> MINING ROTATION MONITOR</div><div style={{fontSize:"10px",padding:"3px 8px",borderRadius:"4px",background:live?"rgba(0,230,118,0.1)":"rgba(255,214,0,0.1)",color:live?"#00e676":"#ffd600",fontFamily:"monospace",fontWeight:600}}>{live?"● LIVE":"◌ DEMO"}</div></div><div style={{display:"flex",alignItems:"center",gap:"16px"}}><span style={{fontSize:"11px",color:"#555",fontFamily:"monospace"}}>{s.timestamp?new Date(s.timestamp).toLocaleString():""}</span><button onClick={refresh} disabled={loading} style={{background:"rgba(255,255,255,0.06)",border:"1px solid #1a1f2e",color:"#8a8f98",padding:"6px 14px",borderRadius:"6px",cursor:loading?"wait":"pointer",fontSize:"11px",fontFamily:"monospace"}}>{loading?"⟳ Updating...":"⟳ Refresh"}</button></div></div>
 
-  return (
-    <div style={{
-      background: "#0d1117", border: `1px solid #1a1f2e`,
-      borderLeft: `3px solid ${color}`,
-      borderRadius: "8px", padding: "16px", marginBottom: "8px",
-      transition: "border-color 0.3s"
-    }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ fontSize: "14px", fontWeight: 700, color: "#e1e4e8" }}>{signal.name}</span>
-          <span style={{
-            fontSize: "9px", padding: "2px 6px", borderRadius: "3px",
-            background: "rgba(255,255,255,0.05)", color: "#8a8f98",
-            textTransform: "uppercase", letterSpacing: "1px", fontFamily: "monospace"
-          }}>{signal.category}</span>
-        </div>
-        <div style={{
-          fontSize: "16px", fontWeight: 800, color,
-          padding: "2px 10px", borderRadius: "4px", background: scoreBg,
-          fontFamily: "'JetBrains Mono', monospace"
-        }}>
-          {signal.score >= 0 ? "+" : ""}{fmt(signal.score, 1)}
-        </div>
-      </div>
-      <div style={{ fontSize: "12px", color: "#8a8f98", lineHeight: 1.5 }}>{signal.detail}</div>
-      <div style={{ fontSize: "10px", color: "#444", marginTop: "6px", fontFamily: "monospace" }}>{signal.threshold_info}</div>
-    </div>
-  );
-}
+<div style={{display:"flex",overflowX:"auto",background:"#0a0e16",borderBottom:"1px solid #1a1f2e"}}>{[["Gold","gold"],["Silver","silver"],["Copper","copper"],["GDX","gdx"],["GDXJ","gdxj"],["Brent Oil","oil"],["DXY","dxy"],["S&P 500","spy"]].map(([l,k])=><PT key={k} label={l} price={s.prices?.[k]} change={s.changes?.[k]?.["1d"]}/>)}</div>
 
-function RotationCard({ target, rank }) {
-  const barWidth = Math.max(5, target.score * 100);
-  const isTop = rank === 0 && target.score > 0;
+<div style={{maxWidth:"1400px",margin:"0 auto",padding:"24px"}}>
+<div style={{background:"#0d1117",borderRadius:"12px",border:"1px solid #1a1f2e",padding:"8px 24px",marginBottom:"24px"}}><Gauge score={s.composite_score} status={s.composite_status} trend={s.score_trend}/></div>
 
-  return (
-    <div style={{
-      background: isTop ? "rgba(0,230,118,0.04)" : "#0d1117",
-      border: `1px solid ${isTop ? "rgba(0,230,118,0.2)" : "#1a1f2e"}`,
-      borderRadius: "8px", padding: "16px", marginBottom: "8px"
-    }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          {isTop && <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "3px", background: "rgba(0,230,118,0.15)", color: "#00e676", fontWeight: 700 }}>TOP PICK</span>}
-          <span style={{ fontSize: "14px", fontWeight: 700, color: "#e1e4e8" }}>{target.name}</span>
-        </div>
-        <span style={{ fontSize: "14px", fontWeight: 700, color: target.score > 0.3 ? "#00e676" : "#8a8f98", fontFamily: "monospace" }}>
-          {(target.score * 100).toFixed(0)}%
-        </span>
-      </div>
-      <div style={{ height: "4px", borderRadius: "2px", background: "rgba(255,255,255,0.05)", marginBottom: "8px" }}>
-        <div style={{ height: "100%", borderRadius: "2px", width: `${barWidth}%`, background: target.score > 0.3 ? "#00e676" : "#444", transition: "width 0.5s" }} />
-      </div>
-      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "6px" }}>
-        {target.tickers.map(t => (
-          <span key={t} style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "4px", background: "rgba(255,255,255,0.06)", color: "#b0b3b8", fontFamily: "monospace", fontWeight: 600 }}>{t}</span>
-        ))}
-      </div>
-      <div style={{ fontSize: "11px", color: "#666" }}>{target.rationale}</div>
-      {target.momentum && Object.keys(target.momentum).length > 0 && (
-        <div style={{ display: "flex", gap: "12px", marginTop: "8px" }}>
-          {Object.entries(target.momentum).map(([ticker, changes]) => (
-            <div key={ticker} style={{ fontSize: "10px", color: "#8a8f98", fontFamily: "monospace" }}>
-              {ticker}: <span style={{ color: (changes["1m"] || 0) >= 0 ? "#00e676" : "#ff1744" }}>{fmtPct(changes["1m"])} 1M</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+{s.alert_message&&<div style={{padding:"12px 20px",borderRadius:"8px",marginBottom:"24px",background:cfg.bg,border:`1px solid ${cfg.color}30`,fontSize:"13px",color:cfg.color,fontWeight:500}}>{s.alert_message}</div>}
 
-function MacroRow({ label, value, format, thresholds }) {
-  let color = "#e1e4e8";
-  if (thresholds) {
-    const v = Number(value);
-    if (thresholds.bullishBelow != null && v < thresholds.bullishBelow) color = "#00e676";
-    else if (thresholds.bearishAbove != null && v > thresholds.bearishAbove) color = "#ff1744";
-    else if (thresholds.warnAbove != null && v > thresholds.warnAbove) color = "#ffd600";
-  }
-  const formatted = format === "pct" ? `${fmt(value)}%` : format === "dollar" ? fmtPrice(value) : fmt(value);
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 340px",gap:"24px"}}>
+<div><div style={{display:"flex",alignItems:"center",gap:"4px",marginBottom:"12px"}}><span style={{fontSize:"11px",color:"#555",textTransform:"uppercase",letterSpacing:"2px",fontFamily:"monospace"}}>Signal Dashboard ({s.signals?.length||0} indicators)</span><Tip info={{d:"Each signal evaluates one dimension of the mining trade: macro conditions, technical momentum, or fundamental value. Weighted by importance — macro signals carry 1.5x weight. Click (i) on any signal for deep explanation."}} width={360}/></div>
+{s.signals?.sort((a,b)=>Math.abs(b.score*b.weight)-Math.abs(a.score*a.weight)).map((sig,i)=><SigCard key={i} signal={sig}/>)}</div>
 
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #1a1f2e" }}>
-      <span style={{ fontSize: "12px", color: "#8a8f98" }}>{label}</span>
-      <span style={{ fontSize: "13px", fontWeight: 600, color, fontFamily: "monospace" }}>{formatted}</span>
-    </div>
-  );
-}
+<div><div style={{display:"flex",alignItems:"center",gap:"4px",marginBottom:"12px"}}><span style={{fontSize:"11px",color:"#555",textTransform:"uppercase",letterSpacing:"2px",fontFamily:"monospace"}}>Rotation Targets</span><Tip info={{d:"When signals say rotate out, where should capital go? Each sector scored by how many 'favored conditions' match the current macro. Top-scoring sector most likely to benefit from whatever's causing metals to weaken.",w:"Different triggers favor different sectors. Oil drops + rates stay high → energy. Rates cut + oil high → growth. The system matches conditions to sectors automatically."}} width={380}/></div>
+{s.rotation_targets?.map((t,i)=><RotCard key={i} target={t} rank={i}/>)}
+<div style={{marginTop:"24px"}}><MC history={history}/></div>
+<div style={{marginTop:"16px",background:"#0d1117",borderRadius:"8px",border:"1px solid #1a1f2e",padding:"16px"}}><div style={{display:"flex",alignItems:"center",gap:"4px",marginBottom:"8px"}}><span style={{fontSize:"10px",color:"#555",textTransform:"uppercase",letterSpacing:"1.5px",fontFamily:"monospace"}}>Period Returns</span><Tip info={{d:"Percentage change over 1D/1W/1M/3M for all tracked tickers. Compare momentum across miners, metals, and rotation targets.",s:"Yahoo Finance (daily close)",f:"Every 15 min during market hours"}} width={320}/></div>
+<div style={{overflowX:"auto"}}><table style={{width:"100%",fontSize:"11px",borderCollapse:"collapse",fontFamily:"monospace"}}><thead><tr style={{color:"#555"}}><th style={{textAlign:"left",padding:"4px 8px"}}></th>{["1D","1W","1M","3M"].map(p=><th key={p} style={{textAlign:"right",padding:"4px 8px"}}>{p}</th>)}</tr></thead><tbody>{["gdx","gdxj","gold","silver","copper","spy","qqq","oil","dxy"].map(k=>{const ch=s.changes?.[k];if(!ch)return null;return(<tr key={k} style={{borderTop:"1px solid #1a1f2e"}}><td style={{padding:"4px 8px",color:"#8a8f98",fontWeight:600}}>{k.toUpperCase()}</td>{["1d","1w","1m","3m"].map(p=><td key={p} style={{textAlign:"right",padding:"4px 8px",color:(ch[p]||0)>=0?"#00e676":"#ff1744"}}>{fP(ch[p])}</td>)}</tr>);})}</tbody></table></div></div></div>
 
-function MiniChart({ history }) {
-  if (!history || history.length < 2) return null;
-  const scores = history.map(h => h.composite_score);
-  const min = Math.min(...scores) - 1;
-  const max = Math.max(...scores) + 1;
-  const range = max - min || 1;
-  const w = 400;
-  const h = 80;
-  const points = scores.map((s, i) => {
-    const x = (i / (scores.length - 1)) * w;
-    const y = h - ((s - min) / range) * h;
-    return `${x},${y}`;
-  }).join(" ");
+<div>
+<div style={{background:"#0d1117",borderRadius:"8px",border:"1px solid #1a1f2e",padding:"16px",marginBottom:"16px"}}><div style={{display:"flex",alignItems:"center",gap:"4px",marginBottom:"8px"}}><span style={{fontSize:"10px",color:"#555",textTransform:"uppercase",letterSpacing:"1.5px",fontFamily:"monospace"}}>Macro Indicators</span><Tip info={{d:"Federal Reserve and Treasury market data. These update daily from FRED (Federal Reserve Economic Data) — the official US government source for economic statistics.",s:"FRED (Federal Reserve Bank of St. Louis)",f:"Daily (business days, ~3:30 PM ET)"}} width={320}/></div>
+<MR label="10Y TIPS Yield (Real Rate)" value={s.macro?.tips_10y||s.macro?.real_rate_10y} format="pct" thresholds={{bB:0.5,wA:1.5,bA:2.0}} ik="10Y TIPS Yield (Real Rate)"/>
+<MR label="10Y Treasury" value={s.macro?.treasury_10y} format="pct" ik="10Y Treasury"/>
+<MR label="10Y Breakeven Inflation" value={s.macro?.breakeven_10y} format="pct" ik="10Y Breakeven Inflation"/>
+<MR label="Fed Funds Rate" value={s.macro?.fed_funds} format="pct" ik="Fed Funds Rate"/></div>
 
-  const latest = scores[scores.length - 1];
-  const latestColor = latest >= 2 ? "#00e676" : latest >= -1 ? "#ffd600" : latest >= -3 ? "#ff9100" : "#ff1744";
+<div style={{background:"#0d1117",borderRadius:"8px",border:"1px solid #1a1f2e",padding:"16px",marginBottom:"16px"}}><div style={{display:"flex",alignItems:"center",gap:"4px",marginBottom:"8px"}}><span style={{fontSize:"10px",color:"#555",textTransform:"uppercase",letterSpacing:"1.5px",fontFamily:"monospace"}}>Key Ratios</span><Tip info={{d:"Cross-asset ratios measuring relative value and momentum within the mining trade.",s:"Yahoo Finance (computed locally)",f:"Every 15 min during market hours"}} width={320}/></div>
+{[["GDX/GLD Ratio","gdx_gld"],["GDX/GLD 20d Slope","gdx_gld_slope_20d"],["GDXJ/GDX Ratio","gdxj_gdx"],["Gold/SPY Ratio","gold_spy"]].map(([l,k])=><div key={k} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid #1a1f2e"}}><span style={{fontSize:"12px",color:"#8a8f98",display:"flex",alignItems:"center"}}>{l}<Tip info={RI[k]} width={300}/></span><span style={{fontSize:"13px",fontWeight:600,color:"#e1e4e8",fontFamily:"monospace"}}>{fmt(s.ratios?.[k],4)}</span></div>)}</div>
 
-  return (
-    <div style={{ padding: "16px", background: "#0d1117", borderRadius: "8px", border: "1px solid #1a1f2e" }}>
-      <div style={{ fontSize: "10px", color: "#555", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: "8px", fontFamily: "monospace" }}>
-        Score History (30 days)
-      </div>
-      <svg viewBox={`0 0 ${w} ${h}`} style={{ width: "100%", height: "80px" }}>
-        <line x1="0" y1={h - ((-3 - min) / range) * h} x2={w} y2={h - ((-3 - min) / range) * h} stroke="#ff174433" strokeDasharray="4" />
-        <line x1="0" y1={h - ((2 - min) / range) * h} x2={w} y2={h - ((2 - min) / range) * h} stroke="#00e67633" strokeDasharray="4" />
-        <line x1="0" y1={h - ((0 - min) / range) * h} x2={w} y2={h - ((0 - min) / range) * h} stroke="#ffffff11" strokeDasharray="2" />
-        <polyline points={points} fill="none" stroke={latestColor} strokeWidth="2" strokeLinejoin="round" />
-      </svg>
-    </div>
-  );
-}
+<div style={{background:"#0d1117",borderRadius:"8px",border:"1px solid #1a1f2e",padding:"16px",marginBottom:"16px"}}><div style={{display:"flex",alignItems:"center",gap:"4px",marginBottom:"8px"}}><span style={{fontSize:"10px",color:"#555",textTransform:"uppercase",letterSpacing:"1.5px",fontFamily:"monospace"}}>AISC Margin Estimate</span><Tip info={{d:"All-In Sustaining Cost (AISC) — industry standard for total production cost per ounce including mining, processing, overhead, sustaining capex, reclamation. $1,800/oz based on 2026 guidance from top-25 GDX constituents.",w:"THE most important fundamental metric for mining stocks. Margin = gold price minus AISC. Current levels = ~$2,900+/oz — historically unprecedented margins funding dividends, buybacks, and expansion.",s:"Gold: Yahoo Finance (GC=F) | AISC: Quarterly earnings (NEM, GOLD, AEM, KGC)",f:"Gold: 15 min | AISC: Update after Q1/Q2/Q3/Q4 earnings"}} width={360}/></div>
+{(()=>{const g=s.prices?.gold||0,a=1800,m=g-a,p=g>0?(m/g)*100:0;return(<><div style={{display:"flex",justifyContent:"space-between",marginBottom:"8px"}}><span style={{fontSize:"11px",color:"#8a8f98"}}>Gold Price</span><span style={{fontSize:"13px",fontWeight:600,fontFamily:"monospace"}}>{f$(g)}</span></div><div style={{display:"flex",justifyContent:"space-between",marginBottom:"8px"}}><span style={{fontSize:"11px",color:"#8a8f98"}}>Est. AISC</span><span style={{fontSize:"13px",fontWeight:600,fontFamily:"monospace"}}>{f$(a)}</span></div><div style={{display:"flex",justifyContent:"space-between",paddingTop:"8px",borderTop:"1px solid #1a1f2e"}}><span style={{fontSize:"11px",color:"#8a8f98"}}>Margin/oz</span><span style={{fontSize:"16px",fontWeight:700,color:m>2500?"#00e676":m>1500?"#ffd600":"#ff1744",fontFamily:"'JetBrains Mono',monospace"}}>{f$(m)} ({fmt(p,0)}%)</span></div></>);})()}</div>
 
-// ── Main App ────────────────────────────────
+<div style={{background:"#0d1117",borderRadius:"8px",border:"1px solid #1a1f2e",padding:"16px"}}><div style={{display:"flex",alignItems:"center",gap:"4px",marginBottom:"12px"}}><span style={{fontSize:"10px",color:"#555",textTransform:"uppercase",letterSpacing:"1.5px",fontFamily:"monospace"}}>Rotation Trigger Checklist</span><Tip info={{d:"Six binary yes/no conditions. When 3+ turn red simultaneously = high-confidence rotation signal. No single condition alone should trigger a full exit — it's the clustering that matters.",w:"Each captures a different risk dimension: geopolitical, monetary, currency, sector-specific, fundamental, technical. When multiple dimensions align bearish, odds of sustained metals downturn increase dramatically."}} width={380}/></div>
+{[{l:"Hormuz resolves / Oil <$75",c:(s.prices?.oil||90)<75},{l:"Real rates >2.0%",c:(s.macro?.tips_10y||s.macro?.real_rate_10y||0)>2.0},{l:"DXY >105",c:(s.prices?.dxy||100)>105},{l:"GDX/GLD slope negative",c:(s.ratios?.gdx_gld_slope_20d||0)<-0.001},{l:"AISC rising + gold stalling",c:(s.prices?.gold||5000)<3500},{l:"GDX below 200-SMA",c:s.signals?.find(x=>x.name.includes("200-Day"))?.status==="bearish"}].map((item,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:"8px",padding:"6px 0",borderBottom:"1px solid #0a0e16"}}><span style={{fontSize:"14px"}}>{item.c?"🔴":"⚪"}</span><span style={{fontSize:"12px",color:item.c?"#ff1744":"#555",flex:1}}>{item.l}</span><Tip info={{d:CL[item.l]}} width={300}/></div>))}
+<div style={{marginTop:"12px",fontSize:"10px",color:"#444",fontStyle:"italic"}}>3+ red = strong rotation signal</div></div></div></div>
 
-export default function MiningRotationDashboard() {
-  const [state, setState] = useState(DEMO_STATE);
-  const [history, setHistory] = useState(DEMO_HISTORY);
-  const [loading, setLoading] = useState(false);
-  const [lastFetch, setLastFetch] = useState(null);
-  const [liveMode, setLiveMode] = useState(false);
-  const [error, setError] = useState(null);
+<div style={{marginTop:"32px",background:"#0d1117",borderRadius:"8px",border:"1px solid #1a1f2e",padding:"20px"}}><div style={{fontSize:"10px",color:"#555",textTransform:"uppercase",letterSpacing:"1.5px",marginBottom:"12px",fontFamily:"monospace"}}>Data Sources & Update Schedule</div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"16px"}}><div><div style={{fontSize:"12px",fontWeight:600,color:"#8a8f98",marginBottom:"6px"}}>Yahoo Finance</div><div style={{fontSize:"11px",color:"#555",lineHeight:1.6}}>Gold (GC=F), Silver (SI=F), Copper (HG=F), Brent (BZ=F), GDX, GDXJ, GLD, SLV, DXY, SPY, QQQ, sector ETFs. RSI, MACD, Bollinger, SMA crossovers.<br/><span style={{color:"#648cff"}}>Every 15 min during market hours</span></div></div>
+<div><div style={{fontSize:"12px",fontWeight:600,color:"#8a8f98",marginBottom:"6px"}}>FRED (Federal Reserve)</div><div style={{fontSize:"11px",color:"#555",lineHeight:1.6}}>DFII10: 10Y TIPS yield. DGS10: 10Y Treasury. T10YIE: Breakeven inflation. FEDFUNDS: Fed funds rate.<br/><span style={{color:"#648cff"}}>Every 2 hours (daily data)</span></div></div>
+<div><div style={{fontSize:"12px",fontWeight:600,color:"#8a8f98",marginBottom:"6px"}}>Manual / Quarterly</div><div style={{fontSize:"11px",color:"#555",lineHeight:1.6}}>AISC estimates from top-25 miner earnings (NEM, GOLD, AEM, KGC). Central bank buying from World Gold Council.<br/><span style={{color:"#648cff"}}>Update AISC in config.py after earnings</span></div></div></div></div>
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const [stateRes, histRes] = await Promise.all([
-        fetch(`${API_BASE}/api/state`),
-        fetch(`${API_BASE}/api/history`)
-      ]);
-      if (stateRes.ok) {
-        const data = await stateRes.json();
-        if (!data.error) {
-          setState(data);
-          setLiveMode(true);
-        }
-      }
-      if (histRes.ok) {
-        const hist = await histRes.json();
-        if (Array.isArray(hist) && hist.length > 0) setHistory(hist);
-      }
-      setLastFetch(new Date());
-    } catch (e) {
-      if (!liveMode) setError(null); // Silently stay in demo
-    } finally {
-      setLoading(false);
-    }
-  }, [liveMode]);
-
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 60000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
-
-  const triggerRefresh = async () => {
-    try {
-      await fetch(`${API_BASE}/api/refresh?fred=true`, { method: "POST" });
-      setTimeout(fetchData, 5000);
-    } catch {}
-  };
-
-  const s = state;
-  const statusCfg = STATUS_CONFIG[s.composite_status] || STATUS_CONFIG.WATCH;
-
-  return (
-    <div style={{
-      minHeight: "100vh", background: "#080b12", color: "#e1e4e8",
-      fontFamily: "'Instrument Sans', 'SF Pro Display', -apple-system, sans-serif"
-    }}>
-      <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-
-      {/* Header */}
-      <div style={{ background: "#0d1117", borderBottom: `2px solid ${statusCfg.color}30`, padding: "12px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <div style={{ fontSize: "16px", fontWeight: 700, letterSpacing: "1px", fontFamily: "'Space Grotesk', sans-serif" }}>
-            <span style={{ color: statusCfg.color }}>◆</span> MINING ROTATION MONITOR
-          </div>
-          <div style={{
-            fontSize: "10px", padding: "3px 8px", borderRadius: "4px",
-            background: liveMode ? "rgba(0,230,118,0.1)" : "rgba(255,214,0,0.1)",
-            color: liveMode ? "#00e676" : "#ffd600",
-            fontFamily: "monospace", fontWeight: 600
-          }}>
-            {liveMode ? "● LIVE" : "◌ DEMO"}
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <span style={{ fontSize: "11px", color: "#555", fontFamily: "monospace" }}>
-            {s.timestamp ? new Date(s.timestamp).toLocaleString() : ""}
-          </span>
-          <button
-            onClick={triggerRefresh}
-            disabled={loading}
-            style={{
-              background: "rgba(255,255,255,0.06)", border: "1px solid #1a1f2e",
-              color: "#8a8f98", padding: "6px 14px", borderRadius: "6px",
-              cursor: loading ? "wait" : "pointer", fontSize: "11px",
-              fontFamily: "monospace"
-            }}
-          >
-            {loading ? "⟳ Updating..." : "⟳ Refresh"}
-          </button>
-        </div>
-      </div>
-
-      {/* Price Ticker Strip */}
-      <div style={{ display: "flex", overflowX: "auto", background: "#0a0e16", borderBottom: "1px solid #1a1f2e" }}>
-        <PriceTicker label="Gold" price={s.prices?.gold} change={s.changes?.gold?.["1d"]} />
-        <PriceTicker label="Silver" price={s.prices?.silver} change={s.changes?.silver?.["1d"]} />
-        <PriceTicker label="Copper" price={s.prices?.copper} change={s.changes?.copper?.["1d"]} />
-        <PriceTicker label="GDX" price={s.prices?.gdx} change={s.changes?.gdx?.["1d"]} />
-        <PriceTicker label="GDXJ" price={s.prices?.gdxj} change={s.changes?.gdxj?.["1d"]} />
-        <PriceTicker label="Brent Oil" price={s.prices?.oil} change={s.changes?.oil?.["1d"]} />
-        <PriceTicker label="DXY" price={s.prices?.dxy} change={s.changes?.dxy?.["1d"]} />
-        <PriceTicker label="S&P 500" price={s.prices?.spy} change={s.changes?.spy?.["1d"]} />
-      </div>
-
-      <div style={{ maxWidth: "1400px", margin: "0 auto", padding: "24px" }}>
-        {/* Score Gauge */}
-        <div style={{ background: "#0d1117", borderRadius: "12px", border: "1px solid #1a1f2e", padding: "8px 24px", marginBottom: "24px" }}>
-          <ScoreGauge score={s.composite_score} status={s.composite_status} trend={s.score_trend} />
-        </div>
-
-        {/* Alert Banner */}
-        {s.alert_message && (
-          <div style={{
-            padding: "12px 20px", borderRadius: "8px", marginBottom: "24px",
-            background: statusCfg.bg, border: `1px solid ${statusCfg.color}30`,
-            fontSize: "13px", color: statusCfg.color, fontWeight: 500
-          }}>
-            {s.alert_message}
-          </div>
-        )}
-
-        {/* Main Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 340px", gap: "24px" }}>
-
-          {/* Column 1: Signals */}
-          <div>
-            <div style={{ fontSize: "11px", color: "#555", textTransform: "uppercase", letterSpacing: "2px", marginBottom: "12px", fontFamily: "monospace" }}>
-              Signal Dashboard ({s.signals?.length || 0} indicators)
-            </div>
-            {s.signals?.sort((a, b) => Math.abs(b.score * b.weight) - Math.abs(a.score * a.weight)).map((sig, i) => (
-              <SignalCard key={i} signal={sig} />
-            ))}
-          </div>
-
-          {/* Column 2: Rotation Targets + History */}
-          <div>
-            <div style={{ fontSize: "11px", color: "#555", textTransform: "uppercase", letterSpacing: "2px", marginBottom: "12px", fontFamily: "monospace" }}>
-              Rotation Targets
-            </div>
-            {s.rotation_targets?.map((t, i) => (
-              <RotationCard key={i} target={t} rank={i} />
-            ))}
-
-            <div style={{ marginTop: "24px" }}>
-              <MiniChart history={history} />
-            </div>
-
-            {/* Performance Grid */}
-            <div style={{ marginTop: "16px", background: "#0d1117", borderRadius: "8px", border: "1px solid #1a1f2e", padding: "16px" }}>
-              <div style={{ fontSize: "10px", color: "#555", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: "8px", fontFamily: "monospace" }}>
-                Period Returns
-              </div>
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", fontSize: "11px", borderCollapse: "collapse", fontFamily: "monospace" }}>
-                  <thead>
-                    <tr style={{ color: "#555" }}>
-                      <th style={{ textAlign: "left", padding: "4px 8px" }}></th>
-                      <th style={{ textAlign: "right", padding: "4px 8px" }}>1D</th>
-                      <th style={{ textAlign: "right", padding: "4px 8px" }}>1W</th>
-                      <th style={{ textAlign: "right", padding: "4px 8px" }}>1M</th>
-                      <th style={{ textAlign: "right", padding: "4px 8px" }}>3M</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {["gdx", "gdxj", "gold", "silver", "copper", "spy", "qqq", "oil", "dxy"].map(key => {
-                      const ch = s.changes?.[key];
-                      if (!ch) return null;
-                      return (
-                        <tr key={key} style={{ borderTop: "1px solid #1a1f2e" }}>
-                          <td style={{ padding: "4px 8px", color: "#8a8f98", fontWeight: 600 }}>{key.toUpperCase()}</td>
-                          {["1d", "1w", "1m", "3m"].map(p => (
-                            <td key={p} style={{ textAlign: "right", padding: "4px 8px", color: (ch[p] || 0) >= 0 ? "#00e676" : "#ff1744" }}>
-                              {fmtPct(ch[p])}
-                            </td>
-                          ))}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          {/* Column 3: Macro Sidebar */}
-          <div>
-            <div style={{ background: "#0d1117", borderRadius: "8px", border: "1px solid #1a1f2e", padding: "16px", marginBottom: "16px" }}>
-              <div style={{ fontSize: "10px", color: "#555", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: "8px", fontFamily: "monospace" }}>
-                Macro Indicators
-              </div>
-              <MacroRow label="10Y TIPS Yield (Real Rate)" value={s.macro?.tips_10y || s.macro?.real_rate_10y} format="pct" thresholds={{ bullishBelow: 0.5, warnAbove: 1.5, bearishAbove: 2.0 }} />
-              <MacroRow label="10Y Treasury" value={s.macro?.treasury_10y} format="pct" />
-              <MacroRow label="10Y Breakeven Inflation" value={s.macro?.breakeven_10y} format="pct" />
-              <MacroRow label="Fed Funds Rate" value={s.macro?.fed_funds} format="pct" />
-            </div>
-
-            <div style={{ background: "#0d1117", borderRadius: "8px", border: "1px solid #1a1f2e", padding: "16px", marginBottom: "16px" }}>
-              <div style={{ fontSize: "10px", color: "#555", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: "8px", fontFamily: "monospace" }}>
-                Key Ratios
-              </div>
-              <MacroRow label="GDX/GLD Ratio" value={s.ratios?.gdx_gld} format="" />
-              <MacroRow label="GDX/GLD 20d Slope" value={s.ratios?.gdx_gld_slope_20d} format="" />
-              <MacroRow label="GDXJ/GDX Ratio" value={s.ratios?.gdxj_gdx} format="" />
-              <MacroRow label="Gold/SPY Ratio" value={s.ratios?.gold_spy} format="" />
-            </div>
-
-            <div style={{ background: "#0d1117", borderRadius: "8px", border: "1px solid #1a1f2e", padding: "16px", marginBottom: "16px" }}>
-              <div style={{ fontSize: "10px", color: "#555", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: "8px", fontFamily: "monospace" }}>
-                AISC Margin Estimate
-              </div>
-              {(() => {
-                const gold = s.prices?.gold || 0;
-                const aisc = 1800;
-                const margin = gold - aisc;
-                const pct = gold > 0 ? (margin / gold) * 100 : 0;
-                return (
-                  <>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                      <span style={{ fontSize: "11px", color: "#8a8f98" }}>Gold Price</span>
-                      <span style={{ fontSize: "13px", fontWeight: 600, fontFamily: "monospace" }}>{fmtPrice(gold)}</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                      <span style={{ fontSize: "11px", color: "#8a8f98" }}>Est. AISC</span>
-                      <span style={{ fontSize: "13px", fontWeight: 600, fontFamily: "monospace" }}>{fmtPrice(aisc)}</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", paddingTop: "8px", borderTop: "1px solid #1a1f2e" }}>
-                      <span style={{ fontSize: "11px", color: "#8a8f98" }}>Margin/oz</span>
-                      <span style={{ fontSize: "16px", fontWeight: 700, color: margin > 2500 ? "#00e676" : margin > 1500 ? "#ffd600" : "#ff1744", fontFamily: "'JetBrains Mono', monospace" }}>
-                        {fmtPrice(margin)} ({fmt(pct, 0)}%)
-                      </span>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
-
-            <div style={{ background: "#0d1117", borderRadius: "8px", border: "1px solid #1a1f2e", padding: "16px" }}>
-              <div style={{ fontSize: "10px", color: "#555", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: "12px", fontFamily: "monospace" }}>
-                Rotation Trigger Checklist
-              </div>
-              {[
-                { label: "Hormuz resolves / Oil <$75", check: (s.prices?.oil || 90) < 75 },
-                { label: "Real rates >2.0%", check: (s.macro?.tips_10y || s.macro?.real_rate_10y || 0) > 2.0 },
-                { label: "DXY >105", check: (s.prices?.dxy || 100) > 105 },
-                { label: "GDX/GLD slope negative", check: (s.ratios?.gdx_gld_slope_20d || 0) < -0.001 },
-                { label: "AISC rising + gold stalling", check: (s.prices?.gold || 5000) < 3500 },
-                { label: "GDX below 200-SMA", check: s.signals?.find(x => x.name.includes("200-Day"))?.status === "bearish" }
-              ].map((item, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 0", borderBottom: "1px solid #0a0e16", fontSize: "12px" }}>
-                  <span style={{ fontSize: "14px" }}>{item.check ? "🔴" : "⚪"}</span>
-                  <span style={{ color: item.check ? "#ff1744" : "#555" }}>{item.label}</span>
-                </div>
-              ))}
-              <div style={{ marginTop: "12px", fontSize: "10px", color: "#444", fontStyle: "italic" }}>
-                3+ red = strong rotation signal
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div style={{ marginTop: "32px", padding: "16px 0", borderTop: "1px solid #1a1f2e", display: "flex", justifyContent: "space-between", fontSize: "10px", color: "#333", fontFamily: "monospace" }}>
-          <span>Mining Rotation Monitor v1.0 — Not financial advice</span>
-          <span>Data: Yahoo Finance, FRED | Updates every 15m during market hours</span>
-        </div>
-      </div>
-    </div>
-  );
-}
+<div style={{marginTop:"16px",padding:"12px 0",display:"flex",justifyContent:"space-between",fontSize:"10px",color:"#333",fontFamily:"monospace"}}><span>Mining Rotation Monitor v1.1 — Not financial advice</span><span>Click any ⓘ for detailed explanations</span></div></div></div>);}
