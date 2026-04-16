@@ -1,0 +1,451 @@
+{
+  "_comment": "Per-stock signal configuration. Add a profile for any ticker to get custom thresholds and sell triggers. Stocks without profiles still get universal technical signals.",
+  "_instructions": {
+    "adding_profiles": "Copy an existing profile, change the ticker key, and customize the thresholds",
+    "categories": "chip_designer | chip_fabricator | server_infra | cloud_platform | ai_monetizer | connectivity | speculative | non_tech",
+    "risk_tiers": "core_hold | core_growth | turnaround | speculative | high_risk",
+    "sector_signal_sensitivity": "Lists which Layer 1 sector signals most affect this stock. Used to weight alerts."
+  },
+
+  "profiles": {
+
+    "NVDA": {
+      "name": "NVIDIA Corporation",
+      "category": "chip_designer",
+      "risk_tier": "core_growth",
+      "value_chain_position": "GPU design — the tollbooth of AI compute. Gets paid first when capex goes up.",
+      "sector_signal_sensitivity": ["hyperscaler_capex", "tsmc_revenue", "sox_index", "helium_price", "vix"],
+      "fundamental_thresholds": {
+        "gross_margin_floor": {"value": 70.0, "severity": "high", "description": "Below 70% for 2 quarters signals pricing power erosion from custom silicon"},
+        "revenue_growth_floor": {"value": 20.0, "severity": "medium", "description": "Below 20% YoY means AI demand is decelerating"},
+        "forward_peg_ceiling": {"value": 2.0, "severity": "medium", "description": "Above 2.0 = overvalued relative to growth"}
+      },
+      "sell_triggers": [
+        "Gross margins drop below 70% for two consecutive quarters",
+        "Hyperscaler capex guidance gets cut by any top-4 spender",
+        "A major hyperscaler moves >50% of AI training to custom chips",
+        "Rubin architecture delays pushing shipments past H2 2026"
+      ],
+      "buy_signals": [
+        "Forward PEG drops below 0.7",
+        "China export restrictions ease, reopening $10B+ TAM",
+        "Hyperscaler capex guidance raised again"
+      ],
+      "earnings_metrics_to_track": ["gross_margin", "data_center_revenue", "revenue_growth_yoy"],
+      "last_earnings_update": null,
+      "manual_fundamentals": {}
+    },
+
+    "AMD": {
+      "name": "Advanced Micro Devices",
+      "category": "chip_designer",
+      "risk_tier": "core_growth",
+      "value_chain_position": "CPU + GPU challenger. EPYC taking share from Intel, Instinct competing with NVIDIA.",
+      "sector_signal_sensitivity": ["hyperscaler_capex", "tsmc_revenue", "sox_index", "helium_price"],
+      "fundamental_thresholds": {
+        "dc_revenue_growth_floor": {"value": 20.0, "severity": "high", "description": "Data center revenue growth below 20% YoY = losing AI narrative"},
+        "gross_margin_target": {"value": 55.0, "severity": "medium", "description": "Margins need to expand toward 60% as GPU mix improves"},
+        "forward_peg_ceiling": {"value": 1.5, "severity": "medium", "description": "Above 1.5 = getting expensive for the growth rate"}
+      },
+      "sell_triggers": [
+        "Data center revenue growth decelerates below 20% YoY for two quarters",
+        "Gross margins fail to expand toward 60% as GPU mix increases",
+        "A major design win (OpenAI, Oracle) gets reversed or delayed",
+        "Forward PEG exceeds 2.0"
+      ],
+      "buy_signals": [
+        "MI350/MI400 benchmarks competitive with NVIDIA Rubin at lower price",
+        "Data center revenue exceeds $8B/quarter",
+        "Forward PEG drops below 0.8"
+      ],
+      "earnings_metrics_to_track": ["data_center_revenue", "gross_margin", "epyc_market_share"],
+      "last_earnings_update": null,
+      "manual_fundamentals": {}
+    },
+
+    "INTC": {
+      "name": "Intel Corporation",
+      "category": "chip_fabricator",
+      "risk_tier": "turnaround",
+      "value_chain_position": "CPU manufacturer + foundry pivot. Domestic fab advantage in Hormuz era.",
+      "sector_signal_sensitivity": ["hyperscaler_capex", "sox_index", "dxy"],
+      "fundamental_thresholds": {
+        "forward_pe_ceiling": {"value": 80.0, "severity": "high", "description": "Above 80x forward P/E without revenue acceleration = priced beyond reality"},
+        "revenue_growth_floor": {"value": 0.0, "severity": "high", "description": "Continued revenue decline after stabilization = turnaround failing"}
+      },
+      "sell_triggers": [
+        "Intel 18A production yields fall below 50% (foundry thesis breaks)",
+        "Two consecutive quarters of revenue decline after current stabilization",
+        "CHIPS Act funding gets clawed back or delayed",
+        "Forward P/E exceeds 80x without revenue acceleration"
+      ],
+      "buy_signals": [
+        "First major foundry contract win (Qualcomm, NVIDIA, or Apple)",
+        "Revenue inflects to consistent growth with margins expanding",
+        "P/E compresses below 40x through earnings improvement"
+      ],
+      "earnings_metrics_to_track": ["revenue_growth_yoy", "foundry_revenue", "gross_margin"],
+      "last_earnings_update": null,
+      "manual_fundamentals": {}
+    },
+
+    "AMZN": {
+      "name": "Amazon.com",
+      "category": "cloud_platform",
+      "risk_tier": "core_hold",
+      "value_chain_position": "AWS cloud + retail + advertising. Only company monetizing AI infrastructure twice.",
+      "sector_signal_sensitivity": ["hyperscaler_capex", "cloud_growth", "ad_spending", "treasury_10y", "oil_price"],
+      "fundamental_thresholds": {
+        "aws_growth_floor": {"value": 15.0, "severity": "high", "description": "AWS growth below 15% for 2 quarters = cloud share loss"},
+        "fcf_floor": {"value": 0.0, "severity": "medium", "description": "Negative FCF for >1 quarter = capex outrunning monetization"}
+      },
+      "sell_triggers": [
+        "AWS growth decelerates below 15% for two quarters",
+        "Free cash flow turns negative for more than one quarter",
+        "AI monetization rate fails to improve by end of 2026"
+      ],
+      "buy_signals": [
+        "AWS maintains 30%+ operating margins while growing 20%+",
+        "Advertising crosses $100B annual revenue",
+        "AI Bedrock becomes default enterprise AI platform"
+      ],
+      "earnings_metrics_to_track": ["aws_revenue", "aws_growth_yoy", "advertising_revenue", "free_cash_flow"],
+      "last_earnings_update": null,
+      "manual_fundamentals": {}
+    },
+
+    "META": {
+      "name": "Meta Platforms",
+      "category": "ai_monetizer",
+      "risk_tier": "core_hold",
+      "value_chain_position": "AI-powered advertising platform. Clearest AI ROI story in big tech.",
+      "sector_signal_sensitivity": ["ad_spending", "treasury_10y", "vix"],
+      "fundamental_thresholds": {
+        "revenue_growth_floor": {"value": 15.0, "severity": "medium", "description": "Revenue growth below 15% = ad market slowing or share loss"},
+        "dau_decline_quarters": {"value": 2, "severity": "high", "description": "DAU decline for 2 quarters = engagement crisis"}
+      },
+      "sell_triggers": [
+        "Daily active users across family of apps decline for two consecutive quarters",
+        "Advantage+ AI revenue run rate plateaus or declines",
+        "Capex exceeds $150B without revenue acceleration",
+        "Advertising recession — broader economy weakens"
+      ],
+      "buy_signals": [
+        "Forward P/E drops below 20x",
+        "Threads ad revenue materializes (400M+ users not yet monetized)",
+        "WhatsApp payments/commerce monetization gains traction",
+        "Reality Labs reaches breakeven"
+      ],
+      "earnings_metrics_to_track": ["revenue_growth_yoy", "dau_family", "advantage_plus_run_rate", "reality_labs_loss"],
+      "last_earnings_update": null,
+      "manual_fundamentals": {}
+    },
+
+    "MSFT": {
+      "name": "Microsoft",
+      "category": "cloud_platform",
+      "risk_tier": "core_hold",
+      "value_chain_position": "Azure cloud + Copilot AI monetization. OpenAI partnership.",
+      "sector_signal_sensitivity": ["hyperscaler_capex", "cloud_growth", "treasury_10y"],
+      "fundamental_thresholds": {
+        "azure_growth_floor": {"value": 20.0, "severity": "medium", "description": "Azure growth below 20% = losing cloud share"},
+        "forward_peg_ceiling": {"value": 2.5, "severity": "medium", "description": "Above 2.5 = overvalued for a mature grower"}
+      },
+      "sell_triggers": [
+        "Azure growth drops below 20% for two quarters",
+        "Copilot monetization significantly disappoints expectations",
+        "Forward P/E exceeds 40x without earnings acceleration"
+      ],
+      "buy_signals": [
+        "Copilot revenue becomes material ($10B+ run rate)",
+        "Azure growth reaccelerates above 30%",
+        "Forward PEG drops below 1.5"
+      ],
+      "earnings_metrics_to_track": ["azure_revenue_growth", "intelligent_cloud_revenue", "copilot_metrics"],
+      "last_earnings_update": null,
+      "manual_fundamentals": {}
+    },
+
+    "AAPL": {
+      "name": "Apple Inc.",
+      "category": "ai_monetizer",
+      "risk_tier": "core_hold",
+      "value_chain_position": "Consumer ecosystem. On-device AI, services revenue growth.",
+      "sector_signal_sensitivity": ["treasury_10y", "dxy", "vix"],
+      "fundamental_thresholds": {
+        "services_growth_floor": {"value": 10.0, "severity": "medium", "description": "Services growth below 10% = margin expansion story weakening"},
+        "iphone_decline_quarters": {"value": 3, "severity": "high", "description": "iPhone units declining 3 quarters = hardware cycle problem"}
+      },
+      "sell_triggers": [
+        "Services revenue growth drops below 10%",
+        "iPhone unit sales decline for three consecutive quarters",
+        "China revenue declines accelerate due to geopolitical tensions",
+        "Forward P/E exceeds 35x without earnings acceleration"
+      ],
+      "buy_signals": [
+        "Apple Intelligence drives meaningful iPhone upgrade cycle",
+        "Services revenue exceeds $100B annual run rate",
+        "Forward PEG drops below 1.5"
+      ],
+      "earnings_metrics_to_track": ["services_revenue", "iphone_revenue", "china_revenue", "gross_margin"],
+      "last_earnings_update": null,
+      "manual_fundamentals": {}
+    },
+
+    "SMCI": {
+      "name": "Super Micro Computer",
+      "category": "server_infra",
+      "risk_tier": "high_risk",
+      "value_chain_position": "AI server assembly. Packages NVIDIA GPUs into rack-scale solutions.",
+      "sector_signal_sensitivity": ["hyperscaler_capex", "sox_index"],
+      "fundamental_thresholds": {
+        "gross_margin_floor": {"value": 12.0, "severity": "high", "description": "Gross margins below 12% = revenue growth is profitless"},
+        "governance_flag": {"value": true, "severity": "immediate", "description": "Any new SEC action, auditor issue, or criminal charge = exit"}
+      },
+      "sell_triggers": [
+        "Another governance scandal, SEC action, or criminal charge involving the company",
+        "Gross margins stay below 12% for two quarters",
+        "NVIDIA reduces allocation priority to SMCI",
+        "Insiders continue net selling"
+      ],
+      "buy_signals": [
+        "Gross margins recover above 15%",
+        "Several consecutive quarters of clean financial reporting",
+        "DLC market share gains vs Dell confirmed by third-party data"
+      ],
+      "earnings_metrics_to_track": ["gross_margin", "revenue_growth_yoy", "insider_transactions"],
+      "last_earnings_update": null,
+      "manual_fundamentals": {}
+    },
+
+    "ASTS": {
+      "name": "AST SpaceMobile",
+      "category": "connectivity",
+      "risk_tier": "speculative",
+      "value_chain_position": "Space-based cellular broadband. Pre-revenue but technology proven.",
+      "sector_signal_sensitivity": ["vix", "treasury_10y"],
+      "fundamental_thresholds": {
+        "satellites_in_orbit_target": {"value": 20, "severity": "high", "description": "Fewer than 20 in orbit by end of 2026 = launch cadence failing"},
+        "cash_runway_months": {"value": 12, "severity": "high", "description": "Less than 12 months runway = dilution risk"}
+      },
+      "sell_triggers": [
+        "Satellite launch cadence falls significantly behind plan",
+        "A major carrier partner exits their commercial agreement",
+        "Cash burn requires additional dilutive raises before breakeven",
+        "SpaceX announces direct-to-cell matching ASTS capabilities"
+      ],
+      "buy_signals": [
+        "Each successful satellite launch",
+        "First material revenue from partial service",
+        "Government defense contracts accelerate"
+      ],
+      "earnings_metrics_to_track": ["satellites_in_orbit", "cash_position", "contracted_revenue", "revenue"],
+      "last_earnings_update": null,
+      "manual_fundamentals": {}
+    },
+
+    "BBAI": {
+      "name": "BigBear.ai",
+      "category": "speculative",
+      "risk_tier": "speculative",
+      "value_chain_position": "Government AI decision intelligence. Niche player competing with Palantir.",
+      "sector_signal_sensitivity": ["vix"],
+      "fundamental_thresholds": {
+        "revenue_growth_floor": {"value": 0.0, "severity": "high", "description": "Revenue declining again = turnaround not working"},
+        "ebitda_improving": {"value": true, "severity": "medium", "description": "EBITDA needs to trend toward breakeven"}
+      },
+      "sell_triggers": [
+        "Revenue guidance gets cut again",
+        "Major contract losses to Palantir",
+        "Cash burn accelerates requiring dilutive raises",
+        "EBITDA fails to improve toward breakeven by Q3 2026"
+      ],
+      "buy_signals": [
+        "Revenue growth exceeds 25% for a quarter",
+        "EBITDA turns positive",
+        "Major new government contract win"
+      ],
+      "earnings_metrics_to_track": ["revenue", "revenue_growth_yoy", "ebitda", "backlog"],
+      "last_earnings_update": null,
+      "manual_fundamentals": {}
+    },
+
+    "BIDU": {
+      "name": "Baidu Inc.",
+      "category": "ai_monetizer",
+      "risk_tier": "high_risk",
+      "value_chain_position": "China AI leader. Ernie Bot LLM + Apollo Go autonomous driving.",
+      "sector_signal_sensitivity": ["china_pmi", "dxy", "vix"],
+      "fundamental_thresholds": {
+        "search_share_floor": {"value": 50.0, "severity": "high", "description": "Search share below 50% = core business eroding"}
+      },
+      "sell_triggers": [
+        "US-China relations deteriorate further (new sanctions, forced delisting risk)",
+        "Chinese regulators impose restrictions on AI monetization",
+        "Search market share loss accelerates below 50%",
+        "Autonomous driving timeline slips beyond 2027"
+      ],
+      "buy_signals": [
+        "US-China trade tensions ease",
+        "Ernie Bot monetization inflects",
+        "Apollo Go reaches profitability in any city",
+        "Forward P/E drops below 10x"
+      ],
+      "earnings_metrics_to_track": ["revenue_growth_yoy", "ai_cloud_revenue", "apollo_go_rides"],
+      "last_earnings_update": null,
+      "manual_fundamentals": {}
+    },
+
+    "NOW": {
+      "name": "ServiceNow",
+      "category": "ai_monetizer",
+      "risk_tier": "core_growth",
+      "value_chain_position": "Enterprise AI workflow automation. AI agent platform.",
+      "sector_signal_sensitivity": ["cloud_growth", "treasury_10y"],
+      "fundamental_thresholds": {
+        "subscription_growth_floor": {"value": 20.0, "severity": "medium", "description": "Sub growth below 20% = enterprise AI demand slowing"},
+        "forward_peg_ceiling": {"value": 2.5, "severity": "medium", "description": "Above 2.5 = expensive for growth rate"}
+      },
+      "sell_triggers": [
+        "Subscription revenue growth drops below 20%",
+        "RPO (remaining performance obligations) growth decelerates",
+        "Forward P/E exceeds 70x without earnings acceleration"
+      ],
+      "buy_signals": [
+        "AI agent adoption drives RPO acceleration",
+        "Forward PEG drops below 1.5",
+        "Enterprise AI platform becomes industry standard"
+      ],
+      "earnings_metrics_to_track": ["subscription_revenue_growth", "rpo", "free_cash_flow_margin"],
+      "last_earnings_update": null,
+      "manual_fundamentals": {}
+    },
+
+    "CRM": {
+      "name": "Salesforce",
+      "category": "ai_monetizer",
+      "risk_tier": "core_hold",
+      "value_chain_position": "Enterprise CRM + Agentforce AI platform.",
+      "sector_signal_sensitivity": ["cloud_growth", "treasury_10y"],
+      "fundamental_thresholds": {
+        "revenue_growth_floor": {"value": 8.0, "severity": "medium", "description": "Revenue growth below 8% = maturing without AI uplift"}
+      },
+      "sell_triggers": [
+        "Revenue growth drops below 8%",
+        "Agentforce AI fails to show material revenue contribution",
+        "Operating margin compression"
+      ],
+      "buy_signals": [
+        "Agentforce revenue becomes material",
+        "Forward PEG drops below 1.5",
+        "Operating margins expand above 35%"
+      ],
+      "earnings_metrics_to_track": ["revenue_growth_yoy", "operating_margin", "remaining_performance_obligations"],
+      "last_earnings_update": null,
+      "manual_fundamentals": {}
+    },
+
+    "SOFI": {
+      "name": "SoFi Technologies",
+      "category": "non_tech",
+      "risk_tier": "core_growth",
+      "value_chain_position": "Digital banking / fintech platform.",
+      "sector_signal_sensitivity": ["treasury_10y"],
+      "fundamental_thresholds": {
+        "member_growth_floor": {"value": 15.0, "severity": "medium", "description": "Member growth below 15% YoY = growth story fading"}
+      },
+      "sell_triggers": [
+        "Member growth decelerates below 15% YoY",
+        "Net interest margin compresses significantly",
+        "Credit quality deteriorates (rising delinquencies)"
+      ],
+      "buy_signals": [
+        "Consistent GAAP profitability",
+        "Member base exceeds 10M",
+        "Technology platform licensing revenue grows"
+      ],
+      "earnings_metrics_to_track": ["member_count", "revenue_growth_yoy", "net_income"],
+      "last_earnings_update": null,
+      "manual_fundamentals": {}
+    }
+  },
+
+  "default_profile": {
+    "_comment": "Applied to any ticker in portfolio.json that doesn't have a custom profile above",
+    "category": "unclassified",
+    "risk_tier": "unclassified",
+    "sector_signal_sensitivity": ["vix", "treasury_10y"],
+    "fundamental_thresholds": {},
+    "sell_triggers": [],
+    "buy_signals": [],
+    "earnings_metrics_to_track": ["revenue_growth_yoy", "gross_margin"],
+    "manual_fundamentals": {}
+  },
+
+  "sector_signals": {
+    "_comment": "Layer 1 signals that affect groups of stocks. Each stock profile references which of these it's sensitive to.",
+    "hyperscaler_capex": {
+      "description": "Aggregate capex guidance from MSFT, AMZN, GOOGL, META, ORCL",
+      "update_frequency": "quarterly",
+      "current_status": "bullish",
+      "affects_categories": ["chip_designer", "chip_fabricator", "server_infra", "cloud_platform"]
+    },
+    "tsmc_revenue": {
+      "description": "TSMC monthly revenue — leading indicator of chip demand",
+      "update_frequency": "monthly",
+      "data_source": "TSMC investor relations monthly reports",
+      "affects_categories": ["chip_designer"]
+    },
+    "sox_index": {
+      "description": "Philadelphia Semiconductor Index — sector momentum",
+      "update_frequency": "real_time",
+      "data_source": "Yahoo Finance (^SOX)",
+      "affects_categories": ["chip_designer", "chip_fabricator", "server_infra"]
+    },
+    "helium_price": {
+      "description": "Helium spot price — Hormuz disruption proxy for chip manufacturing",
+      "update_frequency": "weekly",
+      "data_source": "Linde/Air Liquide industry reports",
+      "affects_categories": ["chip_designer", "chip_fabricator"]
+    },
+    "cloud_growth": {
+      "description": "AWS + Azure quarterly revenue growth rates",
+      "update_frequency": "quarterly",
+      "affects_categories": ["cloud_platform", "ai_monetizer"]
+    },
+    "ad_spending": {
+      "description": "Global digital ad spending growth",
+      "update_frequency": "quarterly",
+      "affects_categories": ["ai_monetizer"]
+    },
+    "oil_price": {
+      "description": "Brent crude — energy cost proxy for data centers",
+      "update_frequency": "real_time",
+      "data_source": "Yahoo Finance (BZ=F)",
+      "affects_categories": ["cloud_platform"]
+    },
+    "china_pmi": {
+      "description": "China PMI — demand proxy for China-exposed stocks",
+      "update_frequency": "monthly",
+      "affects_categories": ["ai_monetizer"]
+    },
+    "treasury_10y": {
+      "description": "10Y Treasury yield — higher = lower growth multiples",
+      "update_frequency": "daily",
+      "data_source": "FRED (DGS10)",
+      "affects_categories": ["all"]
+    },
+    "vix": {
+      "description": "VIX volatility index — fear gauge",
+      "update_frequency": "real_time",
+      "data_source": "Yahoo Finance (^VIX)",
+      "affects_categories": ["all"]
+    },
+    "dxy": {
+      "description": "US Dollar Index — strong dollar hurts overseas earners",
+      "update_frequency": "real_time",
+      "data_source": "Yahoo Finance (DX-Y.NYB)",
+      "affects_categories": ["chip_designer", "ai_monetizer"]
+    }
+  }
+}

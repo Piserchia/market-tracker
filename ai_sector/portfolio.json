@@ -1,0 +1,41 @@
+{
+  "_comment": "Edit this file to update your portfolio. The dashboard reads this on every refresh.",
+  "_instructions": {
+    "add_stock": "Add a new object to the holdings array with ticker, dollars, account, and optionally notes",
+    "remove_stock": "Delete the object or set dollars to 0",
+    "update_position": "Change the dollars value",
+    "accounts": "trading = active trading account | roth = Roth IRA (long-term holds)"
+  },
+  "last_updated": "2026-04-16",
+  "holdings": [
+    {"ticker": "AAPL",  "dollars": 5000,  "account": "trading", "notes": "Ecosystem, services growth"},
+    {"ticker": "AMD",   "dollars": 8600,  "account": "trading", "notes": "Core growth — EPYC + Instinct"},
+    {"ticker": "AMZN",  "dollars": 9300,  "account": "trading", "notes": "AWS + ads double monetization"},
+    {"ticker": "BBAI",  "dollars": 938,   "account": "trading", "notes": "Gov AI speculative"},
+    {"ticker": "BIDU",  "dollars": 2500,  "account": "trading", "notes": "China AI / search"},
+    {"ticker": "INTC",  "dollars": 6800,  "account": "trading", "notes": "Turnaround — foundry bet"},
+    {"ticker": "META",  "dollars": 2700,  "account": "trading", "notes": "AI-powered ad machine"},
+    {"ticker": "MSFT",  "dollars": 2500,  "account": "trading", "notes": "Azure + Copilot"},
+    {"ticker": "NVDA",  "dollars": 4160,  "account": "trading", "notes": "AI GPU king"},
+    {"ticker": "SMCI",  "dollars": 994,   "account": "trading", "notes": "AI servers — governance risk"},
+    {"ticker": "FLY",   "dollars": 1100,  "account": "trading", "notes": "Aircraft leasing"},
+    {"ticker": "NOK",   "dollars": 1000,  "account": "trading", "notes": "5G infrastructure"},
+    {"ticker": "OPTX",  "dollars": 1100,  "account": "trading", "notes": "Optical technology"},
+    {"ticker": "ASTS",  "dollars": 3900,  "account": "trading", "notes": "Satellite broadband — speculative growth"},
+    {"ticker": "NOW",   "dollars": 2500,  "account": "trading", "notes": "Enterprise AI automation"},
+    {"ticker": "LPTH",  "dollars": 373,   "account": "trading", "notes": "Lightpath Technologies"},
+    {"ticker": "COF",   "dollars": 9000,  "account": "trading", "notes": "Financial — non-tech"},
+    {"ticker": "CELH",  "dollars": 1500,  "account": "trading", "notes": "Consumer — non-tech"},
+    {"ticker": "CRM",   "dollars": 1800,  "account": "trading", "notes": "Cloud CRM / AI adjacent"},
+    {"ticker": "HNST",  "dollars": 1000,  "account": "trading", "notes": "Consumer — non-tech"},
+    {"ticker": "MA",    "dollars": 2000,  "account": "trading", "notes": "Payments — non-tech"},
+    {"ticker": "NKE",   "dollars": 1300,  "account": "trading", "notes": "Consumer — non-tech"},
+    {"ticker": "NXXT",  "dollars": 815,   "account": "trading", "notes": "Non-tech"},
+    {"ticker": "SOFI",  "dollars": 1200,  "account": "trading", "notes": "Fintech"},
+    {"ticker": "AMZN",  "dollars": 15000, "account": "roth",    "notes": "Core conviction — long term"},
+    {"ticker": "VDE",   "dollars": 6100,  "account": "roth",    "notes": "Vanguard Energy ETF"},
+    {"ticker": "VGT",   "dollars": 3200,  "account": "roth",    "notes": "Vanguard IT ETF"},
+    {"ticker": "FDGFX", "dollars": 5200,  "account": "roth",    "notes": "Fidelity Diversified Growth"},
+    {"ticker": "FSPTX", "dollars": 12800, "account": "roth",    "notes": "Fidelity Select Technology"}
+  ]
+}
