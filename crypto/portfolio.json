@@ -1,0 +1,18 @@
+{
+  "_comment": "Edit this file to update crypto holdings. Dashboard reads on every refresh.",
+  "_instructions": {
+    "add_coin": "Add object with coin_id (CoinGecko ID), symbol, dollars, and optionally quantity",
+    "remove_coin": "Delete the object or set dollars to 0",
+    "watchlist": "Coins with dollars=0 are tracked on dashboard but shown as watchlist items"
+  },
+  "last_updated": "2026-04-16",
+  "exchange": "Coinbase",
+  "holdings": [
+    {"coin_id": "solana",   "symbol": "SOL", "dollars": 16300, "quantity": null, "notes": "Core holding — high conviction"},
+    {"coin_id": "bitcoin",  "symbol": "BTC", "dollars": 0,     "quantity": null, "notes": "Watchlist — considering entry"},
+    {"coin_id": "ethereum", "symbol": "ETH", "dollars": 0,     "quantity": null, "notes": "Watchlist — considering entry"},
+    {"coin_id": "chainlink","symbol": "LINK","dollars": 0,     "quantity": null, "notes": "Watchlist — oracle infrastructure"},
+    {"coin_id": "ripple",   "symbol": "XRP", "dollars": 0,     "quantity": null, "notes": "Watchlist — payments utility"},
+    {"coin_id": "avalanche-2","symbol":"AVAX","dollars": 0,     "quantity": null, "notes": "Watchlist — enterprise blockchain"}
+  ]
+}
