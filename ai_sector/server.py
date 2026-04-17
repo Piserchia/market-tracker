@@ -38,8 +38,12 @@ WORKFLOWS_DIR = os.path.join(BASE_DIR, "workflows")
 ANALYZE_SCRIPT = os.path.join(WORKFLOWS_DIR, "analyze_stock.sh")
 RESEARCH_SCRIPT = os.path.join(WORKFLOWS_DIR, "daily_research.sh")
 
-app = Flask(__name__, static_folder="../dashboard")
+app = Flask(__name__, static_folder="static", static_url_path="")
 CORS(app)
+
+@app.route("/")
+def serve_dashboard():
+    return app.send_static_file("index.html")
 
 current_state = {}
 state_lock = threading.Lock()

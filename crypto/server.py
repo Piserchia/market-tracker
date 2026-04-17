@@ -14,8 +14,12 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ANALYZE_SCRIPT = os.path.join(BASE_DIR, "workflows", "analyze_coin.sh")
 RESEARCH_SCRIPT = os.path.join(BASE_DIR, "workflows", "daily_research.sh")
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static", static_url_path="")
 CORS(app)
+
+@app.route("/")
+def serve_dashboard():
+    return app.send_static_file("index.html")
 current_state = {}; state_lock = threading.Lock(); active_analyses = {}
 
 def do_refresh():
