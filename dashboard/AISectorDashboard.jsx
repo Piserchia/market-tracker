@@ -1,0 +1,200 @@
+import { useState, useEffect, useCallback } from "react";
+const API = "http://localhost:8788";
+
+// Demo data for when API unavailable
+const DEMO = {timestamp:new Date().toISOString(),portfolio_summary:{total_value:115000,by_account:{trading:73000,roth:42000},by_category:{chip_designer:19560,cloud_platform:11800,ai_monetizer:10200,turnaround:6800,speculative:4838,connectivity:6000,non_tech:16815},holding_count:29},sector_health:{score:2.1,status:{label:"HEALTHY",color:"green",message:"AI cycle indicators are bullish."},signals:[{name:"SOX Index Trend",layer:1,value:5200,score:1.0,status:"bullish",detail:"SOX above 200-SMA — uptrend intact",affects:["chip_designer"],source:"Yahoo Finance"},{name:"VIX Fear Gauge",layer:1,value:21,score:0.0,status:"neutral",detail:"VIX 21 — slightly elevated",source:"Yahoo Finance"},{name:"10Y Treasury",layer:1,value:4.29,score:0.0,status:"neutral",detail:"10Y at 4.29%",source:"Yahoo Finance"},{name:"DXY",layer:1,value:99.8,score:0.5,status:"bullish",detail:"DXY 99.8 — weak dollar helps",source:"Yahoo Finance"},{name:"Oil / Energy",layer:1,value:87,score:0.0,status:"neutral",detail:"Brent $87",source:"Yahoo Finance"},{name:"Semis vs Broad Mkt",layer:1,value:3.2,score:0.0,status:"neutral",detail:"SMH +1.2% vs SPY -2.0% (1M)",source:"Yahoo Finance"}]},stock_cards:{"AMD_trading":{ticker:"AMD",name:"AMD",price:178.5,dollars:8600,account:"trading",category:"chip_designer",risk_tier:"core_growth",status:"HOLD",status_color:"green",composite_score:1.75,signal_summary:{bullish:4,bearish:1,total:6},valuation:{forward_pe:33,peg_ratio:0.53,revenue_growth:35,gross_margin:52.1,analyst_target:210,analyst_upside:17.6},technicals:{rsi:55,pct_vs_200sma:12.3},changes:{"1d":1.2,"1w":3.4,"1m":-2.1,"3m":15.8},signals:[{name:"PEG Ratio",layer:2,value:0.53,score:1.0,status:"bullish",detail:"PEG 0.53 — undervalued vs growth"},{name:"vs Analyst Target",layer:2,value:17.6,score:0.5,status:"bullish",detail:"Target $210 (+18% upside)"},{name:"Trend (200-SMA)",layer:2,value:12.3,score:0.5,status:"bullish",detail:"Above 200-SMA by 12.3%"},{name:"RSI",layer:2,value:55,score:0.0,status:"neutral",detail:"RSI 55 — neutral"},{name:"MACD",layer:2,value:0.8,score:0.25,status:"bullish",detail:"MACD positive"}],sell_triggers:["DC revenue growth <20% YoY for 2 qtrs","Gross margins fail to expand toward 60%"],buy_signals:["MI350 benchmarks competitive with NVIDIA","Forward PEG drops below 0.8"],notes:"Core growth — EPYC + Instinct"}}};
+
+const fmt=(n,d=2)=>n!=null?Number(n).toFixed(d):"—";
+const fP=n=>n!=null?(n>=0?"+":"")+Number(n).toFixed(1)+"%":"—";
+const f$=n=>n!=null?(n>=1000?"$"+Number(n).toLocaleString(undefined,{maximumFractionDigits:0}):"$"+fmt(n)):"—";
+const SC={HOLD:{c:"#00e676",i:"✅"},WATCH:{c:"#ffd600",i:"👀"},NEUTRAL:{c:"#ffd600",i:"—"},SELL:{c:"#ff1744",i:"⛔"},PREPARE:{c:"#ff9100",i:"⚠️"}};
+const CC={chip_designer:"#648cff",chip_fabricator:"#ff6b6b",cloud_platform:"#ff9f43",ai_monetizer:"#00d2d3",server_infra:"#a55eea",connectivity:"#26de81",speculative:"#fd9644",non_tech:"#778ca3",unclassified:"#555"};
+
+function AddStockForm({onAdd}){
+  const[t,setT]=useState("");const[d,setD]=useState("");const[a,setA]=useState("trading");const[loading,setL]=useState(false);
+  const submit=async()=>{if(!t||!d)return;setL(true);try{const r=await fetch(`${API}/api/ai/portfolio`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticker:t.toUpperCase(),dollars:Number(d),account:a,analyze:true})});const j=await r.json();if(j.analysis_triggered)alert(`${t.toUpperCase()} added! Claude is analyzing it — profile will appear shortly.`);setT("");setD("");if(onAdd)onAdd();}catch(e){alert("Failed: "+e.message)}finally{setL(false)}};
+  return(<div style={{background:"#0d1117",borderRadius:"8px",border:"1px solid #1a1f2e",padding:"16px",marginBottom:"16px"}}>
+    <div style={{fontSize:"10px",color:"#555",textTransform:"uppercase",letterSpacing:"1.5px",marginBottom:"10px",fontFamily:"monospace"}}>Add / Update Position</div>
+    <div style={{display:"flex",gap:"8px",flexWrap:"wrap",alignItems:"flex-end"}}>
+      <div><div style={{fontSize:"9px",color:"#444",marginBottom:"4px"}}>TICKER</div><input value={t} onChange={e=>setT(e.target.value)} placeholder="PLTR" style={{background:"#161b22",border:"1px solid #30363d",color:"#e1e4e8",padding:"8px 12px",borderRadius:"6px",width:"80px",fontFamily:"monospace",fontSize:"14px"}}/></div>
+      <div><div style={{fontSize:"9px",color:"#444",marginBottom:"4px"}}>DOLLARS</div><input value={d} onChange={e=>setD(e.target.value)} placeholder="2000" type="number" style={{background:"#161b22",border:"1px solid #30363d",color:"#e1e4e8",padding:"8px 12px",borderRadius:"6px",width:"100px",fontFamily:"monospace",fontSize:"14px"}}/></div>
+      <div><div style={{fontSize:"9px",color:"#444",marginBottom:"4px"}}>ACCOUNT</div><select value={a} onChange={e=>setA(e.target.value)} style={{background:"#161b22",border:"1px solid #30363d",color:"#e1e4e8",padding:"8px 12px",borderRadius:"6px",fontFamily:"monospace",fontSize:"13px"}}><option value="trading">Trading</option><option value="roth">Roth IRA</option></select></div>
+      <button onClick={submit} disabled={loading||!t||!d} style={{background:loading?"#333":"#238636",border:"none",color:"#fff",padding:"8px 20px",borderRadius:"6px",cursor:loading?"wait":"pointer",fontSize:"13px",fontWeight:600}}>{loading?"Analyzing...":"Add Stock"}</button>
+    </div>
+  </div>);
+}
+
+function StockCard({card}){
+  const[expanded,setE]=useState(false);
+  const sc=SC[card.status]||SC.NEUTRAL;const catColor=CC[card.category]||CC.unclassified;
+  const pctPort=card.dollars&&DEMO.portfolio_summary?.total_value?(card.dollars/DEMO.portfolio_summary.total_value*100).toFixed(1):null;
+  return(<div style={{background:"#0d1117",border:"1px solid #1a1f2e",borderLeft:`3px solid ${sc.c}`,borderRadius:"8px",padding:"14px",marginBottom:"8px",cursor:"pointer"}} onClick={()=>setE(!expanded)}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+        <span style={{fontSize:"16px",fontWeight:700,color:"#e1e4e8",fontFamily:"monospace"}}>{card.ticker}</span>
+        <span style={{fontSize:"11px",color:catColor,padding:"2px 6px",borderRadius:"3px",background:`${catColor}15`,fontFamily:"monospace"}}>{card.category?.replace(/_/g," ")}</span>
+        {card.account==="roth"&&<span style={{fontSize:"9px",color:"#ff9f43",padding:"2px 4px",borderRadius:"2px",background:"rgba(255,159,67,0.1)"}}>ROTH</span>}
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+        <span style={{fontSize:"13px",color:"#8a8f98",fontFamily:"monospace"}}>{f$(card.price)}</span>
+        <span style={{fontSize:"12px",fontWeight:700,color:sc.c,padding:"2px 8px",borderRadius:"4px",background:`${sc.c}15`,fontFamily:"monospace"}}>{sc.i} {card.status}</span>
+        <span style={{fontSize:"14px",fontWeight:700,color:card.composite_score>=0?"#00e676":"#ff1744",fontFamily:"monospace"}}>{card.composite_score>=0?"+":""}{fmt(card.composite_score,1)}</span>
+      </div>
+    </div>
+    <div style={{display:"flex",gap:"16px",marginTop:"8px",fontSize:"11px",fontFamily:"monospace"}}>
+      <span style={{color:"#555"}}>Position: <span style={{color:"#e1e4e8"}}>{f$(card.dollars)}</span></span>
+      {pctPort&&<span style={{color:"#555"}}>Portfolio: <span style={{color:"#e1e4e8"}}>{pctPort}%</span></span>}
+      {card.changes&&Object.entries(card.changes).map(([k,v])=><span key={k} style={{color:v>=0?"#00e676":"#ff1744"}}>{k}: {fP(v)}</span>)}
+    </div>
+    {expanded&&<div style={{marginTop:"12px",paddingTop:"12px",borderTop:"1px solid #1a1f2e"}}>
+      {card.valuation&&<div style={{display:"flex",gap:"16px",flexWrap:"wrap",marginBottom:"10px",fontSize:"11px",fontFamily:"monospace"}}>
+        {card.valuation.forward_pe&&<span style={{color:"#555"}}>Fwd P/E: <span style={{color:"#e1e4e8"}}>{card.valuation.forward_pe}x</span></span>}
+        {card.valuation.peg_ratio&&<span style={{color:"#555"}}>PEG: <span style={{color:card.valuation.peg_ratio<1?"#00e676":card.valuation.peg_ratio>2?"#ff1744":"#e1e4e8"}}>{card.valuation.peg_ratio}</span></span>}
+        {card.valuation.gross_margin&&<span style={{color:"#555"}}>GM: <span style={{color:"#e1e4e8"}}>{card.valuation.gross_margin}%</span></span>}
+        {card.valuation.analyst_upside!=null&&<span style={{color:"#555"}}>Target: <span style={{color:card.valuation.analyst_upside>0?"#00e676":"#ff1744"}}>{fP(card.valuation.analyst_upside)}</span></span>}
+        {card.valuation.revenue_growth!=null&&<span style={{color:"#555"}}>Rev Growth: <span style={{color:"#e1e4e8"}}>{card.valuation.revenue_growth}%</span></span>}
+      </div>}
+      {card.signals?.map((s,i)=>{const sc2=s.status==="bullish"?"#00e676":s.status==="bearish"?"#ff1744":"#ffd600";return(
+        <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid #0a0e16",fontSize:"11px"}}>
+          <span style={{color:"#8a8f98"}}>{s.name}</span>
+          <span style={{color:sc2,fontFamily:"monospace"}}>{s.detail}</span>
+        </div>);})}
+      {card.sell_triggers?.length>0&&<div style={{marginTop:"10px"}}><div style={{fontSize:"9px",color:"#ff1744",textTransform:"uppercase",letterSpacing:"1px",marginBottom:"4px"}}>Sell Triggers</div>
+        {card.sell_triggers.map((t,i)=><div key={i} style={{fontSize:"10px",color:"#666",padding:"2px 0"}}>• {t}</div>)}</div>}
+      {card.buy_signals?.length>0&&<div style={{marginTop:"6px"}}><div style={{fontSize:"9px",color:"#00e676",textTransform:"uppercase",letterSpacing:"1px",marginBottom:"4px"}}>Buy Signals</div>
+        {card.buy_signals.map((t,i)=><div key={i} style={{fontSize:"10px",color:"#666",padding:"2px 0"}}>• {t}</div>)}</div>}
+    </div>}
+  </div>);
+}
+
+function SuggestionCard({s,type}){
+  const colors={increase:"#00e676",decrease:"#ff1744",new:"#648cff"};
+  const color=colors[type]||"#648cff";
+  return(<div style={{background:"#0d1117",border:`1px solid #1a1f2e`,borderLeft:`3px solid ${color}`,borderRadius:"8px",padding:"12px",marginBottom:"6px"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <span style={{fontSize:"13px",fontWeight:700,color:"#e1e4e8",fontFamily:"monospace"}}>{s.ticker||s.coin_id||"?"}</span>
+      {s.suggested_allocation&&<span style={{fontSize:"11px",color:"#8a8f98"}}>{f$(s.suggested_allocation)}</span>}
+      {s.severity&&<span style={{fontSize:"10px",color:s.severity==="exit"?"#ff1744":"#ff9100",fontFamily:"monospace"}}>{s.severity.toUpperCase()}</span>}
+    </div>
+    <div style={{fontSize:"11px",color:"#8a8f98",marginTop:"4px",lineHeight:1.5}}>{s.why_now||s.rationale||s.concern||""}</div>
+  </div>);
+}
+
+export default function AISectorDashboard(){
+  const[state,setState]=useState(DEMO);const[suggestions,setSuggestions]=useState(null);
+  const[loading,setLoading]=useState(false);const[live,setLive]=useState(false);const[tab,setTab]=useState("all");
+
+  const fetchData=useCallback(async()=>{try{setLoading(true);
+    const[sr,sugr]=await Promise.all([fetch(`${API}/api/ai/state`).catch(()=>null),fetch(`${API}/api/ai/suggestions`).catch(()=>null)]);
+    if(sr?.ok){const d=await sr.json();if(!d.error){setState(d);setLive(true);}}
+    if(sugr?.ok){const d=await sugr.json();if(!d.error)setSuggestions(d);}
+  }catch{}finally{setLoading(false)}},[]);
+
+  useEffect(()=>{fetchData();const i=setInterval(fetchData,60000);return()=>clearInterval(i);},[fetchData]);
+
+  const s=state;const sh=s.sector_health||{};const shStatus=sh.status||{};
+  const cards=Object.values(s.stock_cards||{});
+  const filtered=tab==="all"?cards:tab==="watchlist"?[]:cards.filter(c=>c.category===tab);
+  const categories=[...new Set(cards.map(c=>c.category).filter(Boolean))].sort();
+  const refresh=async()=>{try{await fetch(`${API}/api/ai/refresh`,{method:"POST"});setTimeout(fetchData,5000)}catch{}};
+  const triggerResearch=async()=>{try{await fetch(`${API}/api/ai/research`,{method:"POST"});alert("Daily research started. Check back in a few minutes.")}catch(e){alert("Failed: "+e.message)}};
+
+  return(<div style={{minHeight:"100vh",background:"#080b12",color:"#e1e4e8",fontFamily:"'Instrument Sans',-apple-system,sans-serif"}}>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+
+    {/* Header */}
+    <div style={{background:"#0d1117",borderBottom:`2px solid ${shStatus.color||"#333"}30`,padding:"12px 24px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <div style={{display:"flex",alignItems:"center",gap:"16px"}}>
+        <span style={{fontSize:"16px",fontWeight:700,fontFamily:"'Space Grotesk'"}}>
+          <span style={{color:shStatus.color||"#555"}}>◆</span> AI SECTOR DASHBOARD</span>
+        <span style={{fontSize:"10px",padding:"3px 8px",borderRadius:"4px",background:live?"rgba(0,230,118,0.1)":"rgba(255,214,0,0.1)",color:live?"#00e676":"#ffd600",fontFamily:"monospace"}}>{live?"● LIVE":"◌ DEMO"}</span>
+      </div>
+      <div style={{display:"flex",gap:"8px"}}>
+        <button onClick={triggerResearch} style={{background:"rgba(100,140,255,0.1)",border:"1px solid #648cff30",color:"#648cff",padding:"6px 12px",borderRadius:"6px",cursor:"pointer",fontSize:"11px",fontFamily:"monospace"}}>🔬 Run Research</button>
+        <button onClick={refresh} disabled={loading} style={{background:"rgba(255,255,255,0.06)",border:"1px solid #1a1f2e",color:"#8a8f98",padding:"6px 12px",borderRadius:"6px",cursor:loading?"wait":"pointer",fontSize:"11px",fontFamily:"monospace"}}>{loading?"⟳ ...":"⟳ Refresh"}</button>
+      </div>
+    </div>
+
+    <div style={{maxWidth:"1400px",margin:"0 auto",padding:"24px"}}>
+      {/* Sector Health */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"16px",marginBottom:"24px"}}>
+        <div style={{background:"#0d1117",borderRadius:"8px",border:"1px solid #1a1f2e",padding:"20px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
+            <span style={{fontSize:"11px",color:"#555",textTransform:"uppercase",letterSpacing:"2px",fontFamily:"monospace"}}>Sector Health</span>
+            <span style={{fontSize:"20px",fontWeight:700,color:shStatus.color||"#555",fontFamily:"'JetBrains Mono'"}}>{sh.score>=0?"+":""}{fmt(sh.score||0,1)}</span>
+          </div>
+          <div style={{padding:"8px 12px",borderRadius:"6px",background:`${shStatus.color||"#555"}10`,border:`1px solid ${shStatus.color||"#555"}25`,fontSize:"13px",color:shStatus.color,fontWeight:500,marginBottom:"12px"}}>{shStatus.message||""}</div>
+          {sh.signals?.map((sig,i)=>{const c=sig.status==="bullish"?"#00e676":sig.status==="bearish"?"#ff1744":"#ffd600";return(
+            <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a1f2e",fontSize:"11px"}}>
+              <span style={{color:"#8a8f98"}}>{sig.name}</span>
+              <span style={{color:c,fontFamily:"monospace"}}>{sig.detail?.slice(0,60)}</span>
+            </div>)})}
+        </div>
+
+        {/* Portfolio Summary */}
+        <div style={{background:"#0d1117",borderRadius:"8px",border:"1px solid #1a1f2e",padding:"20px"}}>
+          <div style={{fontSize:"11px",color:"#555",textTransform:"uppercase",letterSpacing:"2px",fontFamily:"monospace",marginBottom:"12px"}}>Portfolio</div>
+          <div style={{fontSize:"28px",fontWeight:700,color:"#e1e4e8",fontFamily:"'Space Grotesk'",marginBottom:"12px"}}>{f$(s.portfolio_summary?.total_value||0)}</div>
+          {s.portfolio_summary?.by_category&&Object.entries(s.portfolio_summary.by_category).sort((a,b)=>b[1]-a[1]).map(([cat,val])=>{
+            const pct=(val/(s.portfolio_summary.total_value||1)*100).toFixed(0);const color=CC[cat]||"#555";
+            return(<div key={cat} style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"4px"}}>
+              <div style={{width:`${pct}%`,minWidth:"4px",maxWidth:"60%",height:"6px",borderRadius:"3px",background:color}}/>
+              <span style={{fontSize:"10px",color:"#8a8f98",fontFamily:"monospace",minWidth:"100px"}}>{cat.replace(/_/g," ")}</span>
+              <span style={{fontSize:"10px",color:"#555",fontFamily:"monospace"}}>{f$(val)} ({pct}%)</span>
+            </div>)})}
+        </div>
+      </div>
+
+      {/* Add Stock Form */}
+      <AddStockForm onAdd={fetchData}/>
+
+      {/* Main Content */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 360px",gap:"24px"}}>
+        {/* Stock Cards */}
+        <div>
+          <div style={{display:"flex",gap:"6px",marginBottom:"12px",flexWrap:"wrap"}}>
+            <button onClick={()=>setTab("all")} style={{background:tab==="all"?"rgba(255,255,255,0.1)":"transparent",border:"1px solid #1a1f2e",color:tab==="all"?"#e1e4e8":"#555",padding:"4px 12px",borderRadius:"4px",cursor:"pointer",fontSize:"10px",fontFamily:"monospace"}}>ALL ({cards.length})</button>
+            {categories.map(c=>{const n=cards.filter(x=>x.category===c).length;return(
+              <button key={c} onClick={()=>setTab(c)} style={{background:tab===c?`${CC[c]||"#555"}20`:"transparent",border:`1px solid ${tab===c?CC[c]||"#555":"#1a1f2e"}`,color:tab===c?CC[c]||"#e1e4e8":"#555",padding:"4px 10px",borderRadius:"4px",cursor:"pointer",fontSize:"10px",fontFamily:"monospace"}}>{c.replace(/_/g," ")} ({n})</button>)})}
+          </div>
+          {filtered.sort((a,b)=>(b.dollars||0)-(a.dollars||0)).map((card,i)=><StockCard key={i} card={card}/>)}
+          {filtered.length===0&&<div style={{color:"#555",fontSize:"13px",padding:"40px 0",textAlign:"center"}}>No stocks in this category</div>}
+        </div>
+
+        {/* Suggestions Sidebar */}
+        <div>
+          {suggestions&&<>
+            {suggestions.sector_outlook&&<div style={{background:"#0d1117",borderRadius:"8px",border:"1px solid #1a1f2e",padding:"16px",marginBottom:"16px"}}>
+              <div style={{fontSize:"10px",color:"#555",textTransform:"uppercase",letterSpacing:"1.5px",marginBottom:"8px",fontFamily:"monospace"}}>Claude's Daily Research</div>
+              <div style={{fontSize:"12px",color:"#c8ccd4",lineHeight:1.6,marginBottom:"8px"}}>{suggestions.market_summary}</div>
+              <div style={{fontSize:"11px",color:suggestions.sector_sentiment==="bullish"?"#00e676":suggestions.sector_sentiment==="bearish"?"#ff1744":"#ffd600",fontWeight:600}}>{suggestions.sector_sentiment?.toUpperCase()} — {suggestions.sector_outlook}</div>
+              <div style={{fontSize:"9px",color:"#333",marginTop:"8px",fontFamily:"monospace"}}>{suggestions._generated_at||suggestions.timestamp||""}</div>
+            </div>}
+
+            {suggestions.new_suggestions?.length>0&&<div style={{marginBottom:"16px"}}>
+              <div style={{fontSize:"10px",color:"#648cff",textTransform:"uppercase",letterSpacing:"1.5px",marginBottom:"8px",fontFamily:"monospace"}}>New Stock Ideas</div>
+              {suggestions.new_suggestions.map((s,i)=><SuggestionCard key={i} s={s} type="new"/>)}</div>}
+
+            {suggestions.increase_suggestions?.length>0&&<div style={{marginBottom:"16px"}}>
+              <div style={{fontSize:"10px",color:"#00e676",textTransform:"uppercase",letterSpacing:"1.5px",marginBottom:"8px",fontFamily:"monospace"}}>Increase Positions</div>
+              {suggestions.increase_suggestions.map((s,i)=><SuggestionCard key={i} s={s} type="increase"/>)}</div>}
+
+            {suggestions.reduction_warnings?.length>0&&<div style={{marginBottom:"16px"}}>
+              <div style={{fontSize:"10px",color:"#ff1744",textTransform:"uppercase",letterSpacing:"1.5px",marginBottom:"8px",fontFamily:"monospace"}}>Reduction Warnings</div>
+              {suggestions.reduction_warnings.map((s,i)=><SuggestionCard key={i} s={s} type="decrease"/>)}</div>}
+          </>}
+
+          {!suggestions&&<div style={{background:"#0d1117",borderRadius:"8px",border:"1px solid #1a1f2e",padding:"24px",textAlign:"center"}}>
+            <div style={{fontSize:"11px",color:"#555",marginBottom:"12px"}}>No Claude research yet</div>
+            <button onClick={triggerResearch} style={{background:"rgba(100,140,255,0.1)",border:"1px solid #648cff30",color:"#648cff",padding:"8px 16px",borderRadius:"6px",cursor:"pointer",fontSize:"12px"}}>Run Daily Research</button>
+          </div>}
+        </div>
+      </div>
+
+      <div style={{marginTop:"32px",fontSize:"10px",color:"#333",fontFamily:"monospace",display:"flex",justifyContent:"space-between"}}>
+        <span>AI Sector Dashboard v1.0 — Not financial advice</span>
+        <span>Data: Yahoo Finance | Profiles: {Object.keys(s.stock_cards||{}).length} stocks tracked</span>
+      </div>
+    </div>
+  </div>);
+}
