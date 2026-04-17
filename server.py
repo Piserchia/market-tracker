@@ -113,6 +113,12 @@ def run_update(include_fred: bool = False):
 
 # ── API Routes ────────────────────────────────
 
+@app.route("/health")
+def health():
+    """Healthcheck endpoint for the hosting layer."""
+    return jsonify({"status": "ok", "service": "mining"})
+
+
 @app.route("/api/state")
 def get_state():
     """Return current dashboard state."""

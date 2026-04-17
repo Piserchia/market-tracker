@@ -1,0 +1,42 @@
+slug: market-tracker
+name: Market Tracker
+mission: "Multi-sector investment portfolio monitoring with real-time signals, alerts, and rotation recommendations"
+type: service
+subdomain: market-tracker
+port: 8787
+healthcheck: /health
+start_command: "/Users/alfredbot.ai.butler/.pyenv/versions/3.12.13/bin/python3 server.py"
+web_strategy: native-web
+platforms:
+  primary: web
+  web: native
+services:
+  - name: stocks
+    port: 8788
+    start_command: "cd ai_sector && /Users/alfredbot.ai.butler/.pyenv/versions/3.12.13/bin/python3 server.py"
+    healthcheck: /health
+    path_prefix: /stocks
+    api_routes:
+      - "/api/ai/*"
+  - name: crypto
+    port: 8789
+    start_command: "cd crypto && /Users/alfredbot.ai.butler/.pyenv/versions/3.12.13/bin/python3 server.py"
+    healthcheck: /health
+    path_prefix: /crypto
+    api_routes:
+      - "/api/crypto/*"
+env_required:
+  - FRED_API_KEY
+env_optional:
+  - TWILIO_SID
+  - TWILIO_AUTH
+  - TWILIO_FROM
+  - ALERT_PHONE
+description: >
+  Three independent Flask dashboards monitoring mining rotation signals,
+  stock portfolio (29 holdings), and crypto positions (SOL + watchlist).
+  Each dashboard has its own signal engine and React frontend.
+created_at: "2026-04-17"
+git:
+  repo: "https://github.com/Piserchia/market-tracker"
+  branch: main

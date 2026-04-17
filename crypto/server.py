@@ -20,6 +20,14 @@ CORS(app)
 @app.route("/")
 def serve_dashboard():
     return app.send_static_file("index.html")
+
+
+@app.route("/health")
+def health():
+    """Healthcheck endpoint for the hosting layer."""
+    return jsonify({"status": "ok", "service": "crypto"})
+
+
 current_state = {}; state_lock = threading.Lock(); active_analyses = {}
 
 def do_refresh():
