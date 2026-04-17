@@ -1,14 +1,65 @@
 import { useState, useEffect, useCallback } from "react";
 const API = "http://localhost:8788";
 
-// Demo data for when API unavailable
-const DEMO = {timestamp:new Date().toISOString(),portfolio_summary:{total_value:115000,by_account:{trading:73000,roth:42000},by_category:{chip_designer:19560,cloud_platform:11800,ai_monetizer:10200,turnaround:6800,speculative:4838,connectivity:6000,non_tech:16815},holding_count:29},sector_health:{score:2.1,status:{label:"HEALTHY",color:"green",message:"AI cycle indicators are bullish."},signals:[{name:"SOX Index Trend",layer:1,value:5200,score:1.0,status:"bullish",detail:"SOX above 200-SMA — uptrend intact",affects:["chip_designer"],source:"Yahoo Finance"},{name:"VIX Fear Gauge",layer:1,value:21,score:0.0,status:"neutral",detail:"VIX 21 — slightly elevated",source:"Yahoo Finance"},{name:"10Y Treasury",layer:1,value:4.29,score:0.0,status:"neutral",detail:"10Y at 4.29%",source:"Yahoo Finance"},{name:"DXY",layer:1,value:99.8,score:0.5,status:"bullish",detail:"DXY 99.8 — weak dollar helps",source:"Yahoo Finance"},{name:"Oil / Energy",layer:1,value:87,score:0.0,status:"neutral",detail:"Brent $87",source:"Yahoo Finance"},{name:"Semis vs Broad Mkt",layer:1,value:3.2,score:0.0,status:"neutral",detail:"SMH +1.2% vs SPY -2.0% (1M)",source:"Yahoo Finance"}]},stock_cards:{"AMD_trading":{ticker:"AMD",name:"AMD",price:178.5,dollars:8600,account:"trading",category:"chip_designer",risk_tier:"core_growth",status:"HOLD",status_color:"green",composite_score:1.75,signal_summary:{bullish:4,bearish:1,total:6},valuation:{forward_pe:33,peg_ratio:0.53,revenue_growth:35,gross_margin:52.1,analyst_target:210,analyst_upside:17.6},technicals:{rsi:55,pct_vs_200sma:12.3},changes:{"1d":1.2,"1w":3.4,"1m":-2.1,"3m":15.8},signals:[{name:"PEG Ratio",layer:2,value:0.53,score:1.0,status:"bullish",detail:"PEG 0.53 — undervalued vs growth"},{name:"vs Analyst Target",layer:2,value:17.6,score:0.5,status:"bullish",detail:"Target $210 (+18% upside)"},{name:"Trend (200-SMA)",layer:2,value:12.3,score:0.5,status:"bullish",detail:"Above 200-SMA by 12.3%"},{name:"RSI",layer:2,value:55,score:0.0,status:"neutral",detail:"RSI 55 — neutral"},{name:"MACD",layer:2,value:0.8,score:0.25,status:"bullish",detail:"MACD positive"}],sell_triggers:["DC revenue growth <20% YoY for 2 qtrs","Gross margins fail to expand toward 60%"],buy_signals:["MI350 benchmarks competitive with NVIDIA","Forward PEG drops below 0.8"],notes:"Core growth — EPYC + Instinct"}}};
+// ── Info tooltips for every indicator ────────────────────
+const INFO = {
+  // Sector health signals
+  "SOX Index Trend": "The Philadelphia Semiconductor Index (SOX) tracks 30 major chip stocks. When it's above its 200-day SMA, semis are in an uptrend — bullish for NVDA, AMD, INTC. Below = sector weakness.",
+  "VIX Fear Gauge": "The VIX measures expected S&P 500 volatility. Below 18 = complacent/bullish. 18-25 = normal. Above 25 = fear, growth stocks sell off first. Above 35 = panic (often contrarian buying opportunity).",
+  "10Y Treasury Yield": "Long-term interest rate. Higher yields compress tech stock valuations because future earnings are discounted more. Above 4.5% historically pressures growth stocks. Below 3.5% supports them.",
+  "US Dollar (DXY)": "Dollar strength vs major currencies. Strong dollar hurts tech companies with overseas revenue (NVDA, AMD, AAPL). DXY >105 = headwind. <100 = tailwind.",
+  "Oil / Energy Cost": "Brent crude price. High oil = inflation pressure + data center opex pressure for AMZN/MSFT. Above $95 = margin pressure. Below $75 = relief.",
+  "Semis vs Broad Market": "SMH (semi ETF) performance vs SPY (S&P 500) over 30 days. Semis outperforming broad market signals sector strength. Underperforming = rotation out of semis.",
+
+  // Per-stock valuation metrics
+  "Fwd P/E": "Forward Price-to-Earnings ratio. Stock price divided by expected earnings over next 12 months. Lower = cheaper. For high-growth tech, 25-40x is reasonable. Above 60x is expensive without extreme growth.",
+  "PEG Ratio": "Forward P/E divided by earnings growth rate. Below 1.0 = stock is cheap relative to its growth (strong buy signal). 1-2 = fairly valued. Above 2 = expensive. The single best single-metric for growth stocks.",
+  "GM": "Gross margin — revenue minus cost of goods sold, as a %. NVDA runs 75%+. Software is usually 70%+. Hardware is lower. Falling gross margins = pricing pressure or rising costs. Critical for chip stocks.",
+  "Target": "Analyst consensus price target vs current price. +20% or more upside = street thinks stock is cheap. Negative = analysts think it's expensive. Cross-check with 5+ analyst coverage.",
+  "Rev Growth": "Year-over-year revenue growth rate. For AI/tech, 20%+ is healthy, 30%+ is strong, 50%+ is exceptional. Decelerating growth is often the first sign of a thesis break.",
+  "FCF Yield": "Free cash flow divided by market cap. How much actual cash the company generates relative to its price. Above 5% = attractive. Below 2% = expensive. Doesn't work for heavy capex cyclicals.",
+
+  // Per-stock technical indicators
+  "RSI (14-day)": "Relative Strength Index. Measures momentum on 0-100 scale. Above 75 = overbought (short-term sell signal). Below 30 = oversold (potential bounce). 50 is neutral. Best for timing entries/exits.",
+  "Trend (200-SMA)": "Price vs 200-day simple moving average. Above = long-term uptrend (bullish). Below = long-term downtrend (bearish). The single most important technical indicator for trend-following.",
+  "MACD": "Moving Average Convergence Divergence. Histogram positive = bullish momentum. Negative = bearish. When it crosses zero, often signals trend change.",
+
+  // Portfolio categories
+  "chip_designer": "Companies that design AI chips (NVDA, AMD, INTC). Benefit first when hyperscaler capex rises. Most sensitive to semi cycle.",
+  "chip_fabricator": "Companies that manufacture chips. INTC has its own fabs, unlike fabless NVDA/AMD which use TSMC.",
+  "cloud_platform": "Hyperscalers running cloud services (AMZN/AWS, MSFT/Azure). Both buyers of AI chips AND sellers of AI compute.",
+  "ai_monetizer": "Companies using AI to drive revenue (META ads, AMZN retail/ads, AAPL services). Measure success by AI revenue metrics.",
+  "server_infra": "Server assembly companies (SMCI). Package NVIDIA chips into data center racks.",
+  "connectivity": "5G, satellite, networking (NOK, ASTS). Benefits from data center buildout.",
+  "speculative": "Small-cap or pre-revenue plays (BBAI, ASTS). High risk/reward — size positions accordingly.",
+  "financial": "Banks, fintech, payments (COF, MA, SOFI).",
+  "consumer": "Consumer brands (NKE, CELH, HNST). Different drivers than tech.",
+  "non_tech": "Non-tech positions. Different signal set applies.",
+
+  // Composite score
+  "Composite Score": "Sum of all indicator scores for this stock. +2 or higher = strong hold/buy. 0 to +2 = neutral. -1 to 0 = caution. Below -1 = consider reducing. Resets with each data refresh.",
+  "Sector Score": "Sum of Layer 1 sector health signals. +2 or higher = sector tailwinds. 0 to +2 = mixed. Below 0 = headwinds building across the sector.",
+};
+
+const DEMO = {timestamp:new Date().toISOString(),portfolio_summary:{total_value:115000,by_account:{trading:73000,roth:42000},by_category:{chip_designer:19560,cloud_platform:11800,ai_monetizer:10200,turnaround:6800,speculative:4838,connectivity:6000,non_tech:16815,financial:10200,consumer:5100},holding_count:29},sector_health:{score:2.1,status:{label:"HEALTHY",color:"green",message:"Portfolio indicators are broadly constructive."},signals:[{name:"SOX Index Trend",layer:1,value:5200,score:1.0,status:"bullish",detail:"SOX above 200-SMA"},{name:"VIX Fear Gauge",layer:1,value:21,score:0.0,status:"neutral",detail:"VIX 21 — slightly elevated"},{name:"10Y Treasury Yield",layer:1,value:4.29,score:0.0,status:"neutral",detail:"10Y at 4.29%"},{name:"US Dollar (DXY)",layer:1,value:99.8,score:0.5,status:"bullish",detail:"DXY 99.8 — weak dollar helps"},{name:"Oil / Energy Cost",layer:1,value:87,score:0.0,status:"neutral",detail:"Brent $87"},{name:"Semis vs Broad Market",layer:1,value:3.2,score:0.0,status:"neutral",detail:"SMH +1.2% vs SPY -2.0% (1M)"}]},stock_cards:{"AMD_trading":{ticker:"AMD",name:"AMD",price:178.5,dollars:8600,account:"trading",category:"chip_designer",risk_tier:"core_growth",status:"HOLD",status_color:"green",composite_score:1.75,signal_summary:{bullish:4,bearish:1,total:6},valuation:{forward_pe:33,peg_ratio:0.53,revenue_growth:35,gross_margin:52.1,analyst_target:210,analyst_upside:17.6},technicals:{rsi:55,pct_vs_200sma:12.3},changes:{"1d":1.2,"1w":3.4,"1m":-2.1,"3m":15.8},signals:[{name:"PEG Ratio",layer:2,value:0.53,score:1.0,status:"bullish",detail:"PEG 0.53 — undervalued vs growth"},{name:"vs Analyst Target",layer:2,value:17.6,score:0.5,status:"bullish",detail:"Target $210 (+18% upside)"},{name:"Trend (200-SMA)",layer:2,value:12.3,score:0.5,status:"bullish",detail:"Above 200-SMA by 12.3%"}],sell_triggers:["DC revenue growth <20% YoY for 2 qtrs","Gross margins fail to expand toward 60%"],buy_signals:["MI350 benchmarks competitive with NVIDIA","Forward PEG drops below 0.8"],notes:"Core growth — EPYC + Instinct"}}};
 
 const fmt=(n,d=2)=>n!=null?Number(n).toFixed(d):"—";
 const fP=n=>n!=null?(n>=0?"+":"")+Number(n).toFixed(1)+"%":"—";
 const f$=n=>n!=null?(n>=1000?"$"+Number(n).toLocaleString(undefined,{maximumFractionDigits:0}):"$"+fmt(n)):"—";
 const SC={HOLD:{c:"#00e676",i:"✅"},WATCH:{c:"#ffd600",i:"👀"},NEUTRAL:{c:"#ffd600",i:"—"},SELL:{c:"#ff1744",i:"⛔"},PREPARE:{c:"#ff9100",i:"⚠️"}};
-const CC={chip_designer:"#648cff",chip_fabricator:"#ff6b6b",cloud_platform:"#ff9f43",ai_monetizer:"#00d2d3",server_infra:"#a55eea",connectivity:"#26de81",speculative:"#fd9644",non_tech:"#778ca3",unclassified:"#555"};
+const CC={chip_designer:"#648cff",chip_fabricator:"#ff6b6b",cloud_platform:"#ff9f43",ai_monetizer:"#00d2d3",server_infra:"#a55eea",connectivity:"#26de81",speculative:"#fd9644",financial:"#4ecdc4",consumer:"#ee5a6f",non_tech:"#778ca3",unclassified:"#555"};
+const CAT_LABELS={chip_designer:"Chips",chip_fabricator:"Foundry",cloud_platform:"Cloud",ai_monetizer:"AI Monetize",server_infra:"Servers",connectivity:"Connectivity",speculative:"Speculative",financial:"Financial",consumer:"Consumer",non_tech:"Non-Tech",unclassified:"Other"};
+
+// ── Info tooltip component ────────────────────────────
+function Info({keyName,short=false}){
+  const[show,setShow]=useState(false);
+  const text=INFO[keyName];if(!text)return null;
+  return(<span style={{position:"relative",display:"inline-block",marginLeft:"4px"}}
+    onMouseEnter={()=>setShow(true)} onMouseLeave={()=>setShow(false)}>
+    <span style={{fontSize:short?"8px":"9px",color:"#555",border:"1px solid #333",borderRadius:"50%",width:short?"12px":"13px",height:short?"12px":"13px",display:"inline-flex",alignItems:"center",justifyContent:"center",cursor:"help",fontFamily:"monospace",lineHeight:1}}>i</span>
+    {show&&<div style={{position:"absolute",bottom:"100%",left:"50%",transform:"translateX(-50%)",marginBottom:"6px",background:"#161b22",border:"1px solid #30363d",color:"#c8ccd4",padding:"8px 10px",borderRadius:"6px",fontSize:"11px",lineHeight:1.5,width:"280px",zIndex:100,boxShadow:"0 4px 12px rgba(0,0,0,0.5)",textAlign:"left",fontFamily:"-apple-system,sans-serif",fontWeight:400}}>{text}</div>}
+  </span>);
+}
 
 function AddStockForm({onAdd}){
   const[t,setT]=useState("");const[d,setD]=useState("");const[a,setA]=useState("trading");const[loading,setL]=useState(false);
@@ -20,25 +71,31 @@ function AddStockForm({onAdd}){
       <div><div style={{fontSize:"9px",color:"#444",marginBottom:"4px"}}>DOLLARS</div><input value={d} onChange={e=>setD(e.target.value)} placeholder="2000" type="number" style={{background:"#161b22",border:"1px solid #30363d",color:"#e1e4e8",padding:"8px 12px",borderRadius:"6px",width:"100px",fontFamily:"monospace",fontSize:"14px"}}/></div>
       <div><div style={{fontSize:"9px",color:"#444",marginBottom:"4px"}}>ACCOUNT</div><select value={a} onChange={e=>setA(e.target.value)} style={{background:"#161b22",border:"1px solid #30363d",color:"#e1e4e8",padding:"8px 12px",borderRadius:"6px",fontFamily:"monospace",fontSize:"13px"}}><option value="trading">Trading</option><option value="roth">Roth IRA</option></select></div>
       <button onClick={submit} disabled={loading||!t||!d} style={{background:loading?"#333":"#238636",border:"none",color:"#fff",padding:"8px 20px",borderRadius:"6px",cursor:loading?"wait":"pointer",fontSize:"13px",fontWeight:600}}>{loading?"Analyzing...":"Add Stock"}</button>
+      <span style={{fontSize:"10px",color:"#333",alignSelf:"center"}}>New stocks auto-trigger Claude analysis</span>
     </div>
   </div>);
 }
 
-function StockCard({card}){
+function StockCard({card,totalPortfolio}){
   const[expanded,setE]=useState(false);
   const sc=SC[card.status]||SC.NEUTRAL;const catColor=CC[card.category]||CC.unclassified;
-  const pctPort=card.dollars&&DEMO.portfolio_summary?.total_value?(card.dollars/DEMO.portfolio_summary.total_value*100).toFixed(1):null;
+  const pctPort=card.dollars&&totalPortfolio?(card.dollars/totalPortfolio*100).toFixed(1):null;
+  const catLabel=CAT_LABELS[card.category]||card.category?.replace(/_/g," ");
   return(<div style={{background:"#0d1117",border:"1px solid #1a1f2e",borderLeft:`3px solid ${sc.c}`,borderRadius:"8px",padding:"14px",marginBottom:"8px",cursor:"pointer"}} onClick={()=>setE(!expanded)}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
       <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
         <span style={{fontSize:"16px",fontWeight:700,color:"#e1e4e8",fontFamily:"monospace"}}>{card.ticker}</span>
-        <span style={{fontSize:"11px",color:catColor,padding:"2px 6px",borderRadius:"3px",background:`${catColor}15`,fontFamily:"monospace"}}>{card.category?.replace(/_/g," ")}</span>
+        <span style={{fontSize:"11px",color:catColor,padding:"2px 6px",borderRadius:"3px",background:`${catColor}15`,fontFamily:"monospace"}}>{catLabel}</span>
+        <Info keyName={card.category} short/>
         {card.account==="roth"&&<span style={{fontSize:"9px",color:"#ff9f43",padding:"2px 4px",borderRadius:"2px",background:"rgba(255,159,67,0.1)"}}>ROTH</span>}
       </div>
       <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
         <span style={{fontSize:"13px",color:"#8a8f98",fontFamily:"monospace"}}>{f$(card.price)}</span>
         <span style={{fontSize:"12px",fontWeight:700,color:sc.c,padding:"2px 8px",borderRadius:"4px",background:`${sc.c}15`,fontFamily:"monospace"}}>{sc.i} {card.status}</span>
-        <span style={{fontSize:"14px",fontWeight:700,color:card.composite_score>=0?"#00e676":"#ff1744",fontFamily:"monospace"}}>{card.composite_score>=0?"+":""}{fmt(card.composite_score,1)}</span>
+        <span style={{display:"flex",alignItems:"center"}}>
+          <span style={{fontSize:"14px",fontWeight:700,color:card.composite_score>=0?"#00e676":"#ff1744",fontFamily:"monospace"}}>{card.composite_score>=0?"+":""}{fmt(card.composite_score,1)}</span>
+          <Info keyName="Composite Score" short/>
+        </span>
       </div>
     </div>
     <div style={{display:"flex",gap:"16px",marginTop:"8px",fontSize:"11px",fontFamily:"monospace"}}>
@@ -48,11 +105,16 @@ function StockCard({card}){
     </div>
     {expanded&&<div style={{marginTop:"12px",paddingTop:"12px",borderTop:"1px solid #1a1f2e"}}>
       {card.valuation&&<div style={{display:"flex",gap:"16px",flexWrap:"wrap",marginBottom:"10px",fontSize:"11px",fontFamily:"monospace"}}>
-        {card.valuation.forward_pe&&<span style={{color:"#555"}}>Fwd P/E: <span style={{color:"#e1e4e8"}}>{card.valuation.forward_pe}x</span></span>}
-        {card.valuation.peg_ratio&&<span style={{color:"#555"}}>PEG: <span style={{color:card.valuation.peg_ratio<1?"#00e676":card.valuation.peg_ratio>2?"#ff1744":"#e1e4e8"}}>{card.valuation.peg_ratio}</span></span>}
-        {card.valuation.gross_margin&&<span style={{color:"#555"}}>GM: <span style={{color:"#e1e4e8"}}>{card.valuation.gross_margin}%</span></span>}
-        {card.valuation.analyst_upside!=null&&<span style={{color:"#555"}}>Target: <span style={{color:card.valuation.analyst_upside>0?"#00e676":"#ff1744"}}>{fP(card.valuation.analyst_upside)}</span></span>}
-        {card.valuation.revenue_growth!=null&&<span style={{color:"#555"}}>Rev Growth: <span style={{color:"#e1e4e8"}}>{card.valuation.revenue_growth}%</span></span>}
+        {card.valuation.forward_pe&&<span style={{color:"#555"}}>Fwd P/E<Info keyName="Fwd P/E" short/>: <span style={{color:"#e1e4e8"}}>{card.valuation.forward_pe}x</span></span>}
+        {card.valuation.peg_ratio&&<span style={{color:"#555"}}>PEG<Info keyName="PEG Ratio" short/>: <span style={{color:card.valuation.peg_ratio<1?"#00e676":card.valuation.peg_ratio>2?"#ff1744":"#e1e4e8"}}>{card.valuation.peg_ratio}</span></span>}
+        {card.valuation.gross_margin&&<span style={{color:"#555"}}>GM<Info keyName="GM" short/>: <span style={{color:"#e1e4e8"}}>{card.valuation.gross_margin}%</span></span>}
+        {card.valuation.analyst_upside!=null&&<span style={{color:"#555"}}>Target<Info keyName="Target" short/>: <span style={{color:card.valuation.analyst_upside>0?"#00e676":"#ff1744"}}>{fP(card.valuation.analyst_upside)}</span></span>}
+        {card.valuation.revenue_growth!=null&&<span style={{color:"#555"}}>Rev Growth<Info keyName="Rev Growth" short/>: <span style={{color:"#e1e4e8"}}>{card.valuation.revenue_growth}%</span></span>}
+        {card.valuation.fcf_yield!=null&&<span style={{color:"#555"}}>FCF Yield<Info keyName="FCF Yield" short/>: <span style={{color:card.valuation.fcf_yield>3?"#00e676":"#e1e4e8"}}>{card.valuation.fcf_yield}%</span></span>}
+      </div>}
+      {card.technicals&&<div style={{display:"flex",gap:"16px",flexWrap:"wrap",marginBottom:"10px",fontSize:"11px",fontFamily:"monospace"}}>
+        {card.technicals.rsi!=null&&<span style={{color:"#555"}}>RSI<Info keyName="RSI (14-day)" short/>: <span style={{color:card.technicals.rsi>75?"#ff1744":card.technicals.rsi<30?"#00e676":"#e1e4e8"}}>{card.technicals.rsi}</span></span>}
+        {card.technicals.pct_vs_200sma!=null&&<span style={{color:"#555"}}>vs 200-SMA<Info keyName="Trend (200-SMA)" short/>: <span style={{color:card.technicals.pct_vs_200sma>0?"#00e676":"#ff1744"}}>{fP(card.technicals.pct_vs_200sma)}</span></span>}
       </div>}
       {card.signals?.map((s,i)=>{const sc2=s.status==="bullish"?"#00e676":s.status==="bearish"?"#ff1744":"#ffd600";return(
         <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid #0a0e16",fontSize:"11px"}}>
@@ -80,7 +142,7 @@ function SuggestionCard({s,type}){
   </div>);
 }
 
-export default function AISectorDashboard(){
+export default function StocksDashboard(){
   const[state,setState]=useState(DEMO);const[suggestions,setSuggestions]=useState(null);
   const[loading,setLoading]=useState(false);const[live,setLive]=useState(false);const[tab,setTab]=useState("all");
 
@@ -94,8 +156,9 @@ export default function AISectorDashboard(){
 
   const s=state;const sh=s.sector_health||{};const shStatus=sh.status||{};
   const cards=Object.values(s.stock_cards||{});
-  const filtered=tab==="all"?cards:tab==="watchlist"?[]:cards.filter(c=>c.category===tab);
+  const filtered=tab==="all"?cards:cards.filter(c=>c.category===tab);
   const categories=[...new Set(cards.map(c=>c.category).filter(Boolean))].sort();
+  const totalPort=s.portfolio_summary?.total_value||0;
   const refresh=async()=>{try{await fetch(`${API}/api/ai/refresh`,{method:"POST"});setTimeout(fetchData,5000)}catch{}};
   const triggerResearch=async()=>{try{await fetch(`${API}/api/ai/research`,{method:"POST"});alert("Daily research started. Check back in a few minutes.")}catch(e){alert("Failed: "+e.message)}};
 
@@ -106,7 +169,7 @@ export default function AISectorDashboard(){
     <div style={{background:"#0d1117",borderBottom:`2px solid ${shStatus.color||"#333"}30`,padding:"12px 24px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
       <div style={{display:"flex",alignItems:"center",gap:"16px"}}>
         <span style={{fontSize:"16px",fontWeight:700,fontFamily:"'Space Grotesk'"}}>
-          <span style={{color:shStatus.color||"#555"}}>◆</span> AI SECTOR DASHBOARD</span>
+          <span style={{color:shStatus.color||"#555"}}>◆</span> STOCKS DASHBOARD</span>
         <span style={{fontSize:"10px",padding:"3px 8px",borderRadius:"4px",background:live?"rgba(0,230,118,0.1)":"rgba(255,214,0,0.1)",color:live?"#00e676":"#ffd600",fontFamily:"monospace"}}>{live?"● LIVE":"◌ DEMO"}</span>
       </div>
       <div style={{display:"flex",gap:"8px"}}>
@@ -116,30 +179,29 @@ export default function AISectorDashboard(){
     </div>
 
     <div style={{maxWidth:"1400px",margin:"0 auto",padding:"24px"}}>
-      {/* Sector Health */}
+      {/* Sector Health + Portfolio */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"16px",marginBottom:"24px"}}>
         <div style={{background:"#0d1117",borderRadius:"8px",border:"1px solid #1a1f2e",padding:"20px"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
-            <span style={{fontSize:"11px",color:"#555",textTransform:"uppercase",letterSpacing:"2px",fontFamily:"monospace"}}>Sector Health</span>
+            <span style={{fontSize:"11px",color:"#555",textTransform:"uppercase",letterSpacing:"2px",fontFamily:"monospace"}}>Market Health<Info keyName="Sector Score"/></span>
             <span style={{fontSize:"20px",fontWeight:700,color:shStatus.color||"#555",fontFamily:"'JetBrains Mono'"}}>{sh.score>=0?"+":""}{fmt(sh.score||0,1)}</span>
           </div>
           <div style={{padding:"8px 12px",borderRadius:"6px",background:`${shStatus.color||"#555"}10`,border:`1px solid ${shStatus.color||"#555"}25`,fontSize:"13px",color:shStatus.color,fontWeight:500,marginBottom:"12px"}}>{shStatus.message||""}</div>
           {sh.signals?.map((sig,i)=>{const c=sig.status==="bullish"?"#00e676":sig.status==="bearish"?"#ff1744":"#ffd600";return(
             <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1a1f2e",fontSize:"11px"}}>
-              <span style={{color:"#8a8f98"}}>{sig.name}</span>
+              <span style={{color:"#8a8f98",display:"flex",alignItems:"center"}}>{sig.name}<Info keyName={sig.name} short/></span>
               <span style={{color:c,fontFamily:"monospace"}}>{sig.detail?.slice(0,60)}</span>
             </div>)})}
         </div>
 
-        {/* Portfolio Summary */}
         <div style={{background:"#0d1117",borderRadius:"8px",border:"1px solid #1a1f2e",padding:"20px"}}>
-          <div style={{fontSize:"11px",color:"#555",textTransform:"uppercase",letterSpacing:"2px",fontFamily:"monospace",marginBottom:"12px"}}>Portfolio</div>
-          <div style={{fontSize:"28px",fontWeight:700,color:"#e1e4e8",fontFamily:"'Space Grotesk'",marginBottom:"12px"}}>{f$(s.portfolio_summary?.total_value||0)}</div>
+          <div style={{fontSize:"11px",color:"#555",textTransform:"uppercase",letterSpacing:"2px",fontFamily:"monospace",marginBottom:"12px"}}>Portfolio Allocation</div>
+          <div style={{fontSize:"28px",fontWeight:700,color:"#e1e4e8",fontFamily:"'Space Grotesk'",marginBottom:"12px"}}>{f$(totalPort)}</div>
           {s.portfolio_summary?.by_category&&Object.entries(s.portfolio_summary.by_category).sort((a,b)=>b[1]-a[1]).map(([cat,val])=>{
-            const pct=(val/(s.portfolio_summary.total_value||1)*100).toFixed(0);const color=CC[cat]||"#555";
+            const pct=(val/(totalPort||1)*100).toFixed(0);const color=CC[cat]||"#555";const label=CAT_LABELS[cat]||cat.replace(/_/g," ");
             return(<div key={cat} style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"4px"}}>
-              <div style={{width:`${pct}%`,minWidth:"4px",maxWidth:"60%",height:"6px",borderRadius:"3px",background:color}}/>
-              <span style={{fontSize:"10px",color:"#8a8f98",fontFamily:"monospace",minWidth:"100px"}}>{cat.replace(/_/g," ")}</span>
+              <div style={{width:`${Math.max(pct,3)}%`,minWidth:"4px",maxWidth:"60%",height:"6px",borderRadius:"3px",background:color}}/>
+              <span style={{fontSize:"10px",color:"#8a8f98",fontFamily:"monospace",minWidth:"90px",display:"flex",alignItems:"center"}}>{label}<Info keyName={cat} short/></span>
               <span style={{fontSize:"10px",color:"#555",fontFamily:"monospace"}}>{f$(val)} ({pct}%)</span>
             </div>)})}
         </div>
@@ -150,14 +212,14 @@ export default function AISectorDashboard(){
 
       {/* Main Content */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 360px",gap:"24px"}}>
-        {/* Stock Cards */}
         <div>
-          <div style={{display:"flex",gap:"6px",marginBottom:"12px",flexWrap:"wrap"}}>
+          <div style={{display:"flex",gap:"6px",marginBottom:"12px",flexWrap:"wrap",alignItems:"center"}}>
+            <span style={{fontSize:"10px",color:"#444",marginRight:"4px",fontFamily:"monospace"}}>FILTER:</span>
             <button onClick={()=>setTab("all")} style={{background:tab==="all"?"rgba(255,255,255,0.1)":"transparent",border:"1px solid #1a1f2e",color:tab==="all"?"#e1e4e8":"#555",padding:"4px 12px",borderRadius:"4px",cursor:"pointer",fontSize:"10px",fontFamily:"monospace"}}>ALL ({cards.length})</button>
-            {categories.map(c=>{const n=cards.filter(x=>x.category===c).length;return(
-              <button key={c} onClick={()=>setTab(c)} style={{background:tab===c?`${CC[c]||"#555"}20`:"transparent",border:`1px solid ${tab===c?CC[c]||"#555":"#1a1f2e"}`,color:tab===c?CC[c]||"#e1e4e8":"#555",padding:"4px 10px",borderRadius:"4px",cursor:"pointer",fontSize:"10px",fontFamily:"monospace"}}>{c.replace(/_/g," ")} ({n})</button>)})}
+            {categories.map(c=>{const n=cards.filter(x=>x.category===c).length;const lbl=CAT_LABELS[c]||c.replace(/_/g," ");return(
+              <button key={c} onClick={()=>setTab(c)} style={{background:tab===c?`${CC[c]||"#555"}20`:"transparent",border:`1px solid ${tab===c?CC[c]||"#555":"#1a1f2e"}`,color:tab===c?CC[c]||"#e1e4e8":"#555",padding:"4px 10px",borderRadius:"4px",cursor:"pointer",fontSize:"10px",fontFamily:"monospace"}}>{lbl} ({n})</button>)})}
           </div>
-          {filtered.sort((a,b)=>(b.dollars||0)-(a.dollars||0)).map((card,i)=><StockCard key={i} card={card}/>)}
+          {filtered.sort((a,b)=>(b.dollars||0)-(a.dollars||0)).map((card,i)=><StockCard key={i} card={card} totalPortfolio={totalPort}/>)}
           {filtered.length===0&&<div style={{color:"#555",fontSize:"13px",padding:"40px 0",textAlign:"center"}}>No stocks in this category</div>}
         </div>
 
@@ -192,8 +254,8 @@ export default function AISectorDashboard(){
       </div>
 
       <div style={{marginTop:"32px",fontSize:"10px",color:"#333",fontFamily:"monospace",display:"flex",justifyContent:"space-between"}}>
-        <span>AI Sector Dashboard v1.0 — Not financial advice</span>
-        <span>Data: Yahoo Finance | Profiles: {Object.keys(s.stock_cards||{}).length} stocks tracked</span>
+        <span>Stocks Dashboard v1.1 — Hover (i) icons for explanations — Not financial advice</span>
+        <span>Data: Yahoo Finance | {Object.keys(s.stock_cards||{}).length} stocks tracked</span>
       </div>
     </div>
   </div>);

@@ -69,13 +69,13 @@ build_html \
     "Mining Rotation Monitor" \
     "MiningRotationDashboard"
 
-# AI Sector dashboard
+# Stocks dashboard (renamed from AI Sector — now covers all equity holdings with sector filtering)
 mkdir -p "$DIR/ai_sector/static"
 build_html \
-    "$DASHBOARD_DIR/AISectorDashboard.jsx" \
+    "$DASHBOARD_DIR/StocksDashboard.jsx" \
     "$DIR/ai_sector/static/index.html" \
-    "AI Sector Dashboard" \
-    "AISectorDashboard"
+    "Stocks Dashboard" \
+    "StocksDashboard"
 
 # Crypto dashboard
 mkdir -p "$DIR/crypto/static"

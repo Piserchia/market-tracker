@@ -23,18 +23,20 @@ A multi-dashboard market monitoring system built for Chris Piserchia's ~$115K in
 **Data sources**: Yahoo Finance (prices, technicals), FRED API (rates, CPI, TIPS)
 **Unique features**: Twilio SMS + email alerts, APScheduler for auto-updates, comprehensive info tooltips on every indicator
 
-### AI Sector Dashboard (:8788)
-**Purpose**: Monitor Chris's AI/tech stock holdings with per-stock signal cards, valuation scoring, and Claude-powered daily research.
-**Status**: Backend COMPLETE, frontend BUILDING
-**Key files**: `ai_sector/portfolio.json`, `ai_sector/stock_profiles.json`, `ai_sector/signal_engine.py`, `ai_sector/server.py`, `ai_sector/workflows/`
+### Stocks Dashboard (:8788) — formerly AI Sector
+**Purpose**: Monitor ALL of Chris's equity holdings (AI/tech + non-tech) with per-stock signal cards, valuation scoring, sector filter tabs, and Claude-powered daily research.
+**Status**: Backend COMPLETE, frontend COMPLETE with info tooltips
+**Key files**: `ai_sector/portfolio.json`, `ai_sector/stock_profiles.json`, `ai_sector/signal_engine.py`, `ai_sector/server.py`, `ai_sector/workflows/`, `dashboard/StocksDashboard.jsx`
 **Data sources**: Yahoo Finance (prices, fundamentals, technicals), FRED API
 **Portfolio**: 29 holdings across trading account + Roth IRA (see portfolio.json)
-**Profiles**: 14 stocks profiled with custom sell triggers and thresholds
+**Profiles**: 14+ stocks profiled with custom sell triggers and thresholds
+**Categories**: chip_designer, cloud_platform, ai_monetizer, server_infra, connectivity, speculative, financial, consumer, non_tech
+**Note**: Directory is still named `ai_sector/` for backwards compat, but dashboard is named "Stocks". API routes are still `/api/ai/*`. Rename is purely UI-level.
 
 ### Crypto Dashboard (:8789)
 **Purpose**: Monitor crypto holdings (currently $16.3K SOL) with on-chain indicators, market cycle signals, and Claude-powered research.
-**Status**: Backend COMPLETE, frontend BUILDING
-**Key files**: `crypto/portfolio.json`, `crypto/crypto_profiles.json`, `crypto/signal_engine.py`, `crypto/server.py`, `crypto/workflows/`
+**Status**: Backend COMPLETE, frontend COMPLETE with info tooltips
+**Key files**: `crypto/portfolio.json`, `crypto/crypto_profiles.json`, `crypto/signal_engine.py`, `crypto/server.py`, `crypto/workflows/`, `dashboard/CryptoDashboard.jsx`
 **Data sources**: CoinGecko API, DeFiLlama API, Alternative.me (Fear & Greed), Yahoo Finance (DXY, yields)
 **Portfolio**: SOL ($16.3K held), BTC/ETH/LINK/XRP/AVAX on watchlist
 
@@ -97,10 +99,11 @@ Simplicity. Chris edits `portfolio.json` directly or through the API. No databas
 ## 5. WHAT'S INCOMPLETE / TODO
 
 ### High Priority
-- [ ] **React frontends for AI sector and crypto** — building now
-- [ ] **Dashboard UI portfolio management forms** — add/edit/remove positions inline
-- [ ] **Suggestions panel** — display Claude daily research results on dashboard
-- [ ] **Unified landing page** — a single page at :8787 (or dedicated port) that links to all three dashboards
+- [x] ~~React frontends for AI sector and crypto~~ — COMPLETE with info tooltips
+- [x] ~~Dashboard UI portfolio management forms~~ — Add/edit forms live in both dashboards
+- [x] ~~Suggestions panel~~ — Displaying Claude daily research on dashboards
+- [x] ~~Unified landing page~~ — at localhost:8787 linking to all three
+- [ ] **Info tooltips rollout complete** — Stocks + Crypto have (i) hover tooltips. Mining dashboard already had this. All three consistent.
 
 ### Medium Priority
 - [ ] **AI sector: earnings calendar integration** — per-stock next earnings date, auto-refresh after earnings
